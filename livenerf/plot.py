@@ -73,6 +73,31 @@ def _fable_points(path: Path = FABLE_CSV):
     return sorted(pts)
 
 
+def confidence_bounds(score, se):
+    return score - 1.96 * se, score + 1.96 * se
+
+
+def render_score_series(points, x, y, colour, surface):
+    parts = []
+    if len(points) > 1:
+        if all(math.isfinite(se) for _, _, se in points):
+            bounds = [(day, *confidence_bounds(score, se)) for day, score, se in points]
+            upper = " L".join(f"{x(day):.1f},{y(hi):.1f}" for day, _, hi in bounds)
+            lower = " L".join(f"{x(day):.1f},{y(lo):.1f}" for day, lo, _ in reversed(bounds))
+            parts.append(f'<path d="M{upper} L{lower} Z" fill="{colour}" opacity="0.12"/>')
+        line = " L".join(f"{x(day):.1f},{y(score):.1f}" for day, score, _ in points)
+        parts.append(f'<path d="M{line}" fill="none" stroke="{colour}" stroke-width="2" '
+                     'stroke-linejoin="round" stroke-linecap="round"/>')
+    for day, score, se in points:
+        if math.isfinite(se):
+            lo, hi = confidence_bounds(score, se)
+            parts.append(f'<line x1="{x(day):.1f}" y1="{y(lo):.1f}" x2="{x(day):.1f}" y2="{y(hi):.1f}" '
+                         f'stroke="{colour}" stroke-width="1.5" opacity="0.5"/>')
+        parts.append(f'<circle cx="{x(day):.1f}" cy="{y(score):.1f}" r="3.5" fill="{colour}" '
+                     f'stroke="{surface}" stroke-width="1.5"/>')
+    return parts
+
+
 def render(pts, base_mean, start: datetime, n_samples: int, theme: str, fable=()) -> str:
     c = THEMES[theme]
     w, h = 960, 380
@@ -124,16 +149,7 @@ def render(pts, base_mean, start: datetime, n_samples: int, theme: str, fable=()
         o.append(f'<line x1="{pl}" y1="{by:.1f}" x2="{w - pr}" y2="{by:.1f}" stroke="{c["ink2"]}" stroke-width="1.5" stroke-dasharray="6 5"/>')
         o.append(f'<text x="{w - pr - 4}" y="{by - 6:.1f}" text-anchor="end" fill="{c["ink2"]}" font-size="12">baseline {base_mean:.1f}%</text>')
     if pts:
-        if len(pts) > 1:
-            upper = " L".join(f"{x(d):.1f},{y(v + 1.96 * s):.1f}" for d, v, s in pts)
-            lower = " L".join(f"{x(d):.1f},{y(v - 1.96 * s):.1f}" for d, v, s in reversed(pts))
-            o.append(f'<path d="M{upper} L{lower} Z" fill="{c["series"]}" opacity="0.12"/>')
-            line = " L".join(f"{x(d):.1f},{y(v):.1f}" for d, v, _ in pts)
-            o.append(f'<path d="M{line}" fill="none" stroke="{c["series"]}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>')
-        for d, v, s in pts:
-            o.append(f'<line x1="{x(d):.1f}" y1="{y(v - 1.96 * s):.1f}" x2="{x(d):.1f}" y2="{y(v + 1.96 * s):.1f}" '
-                     f'stroke="{c["series"]}" stroke-width="1.5" opacity="0.5"/>')
-            o.append(f'<circle cx="{x(d):.1f}" cy="{y(v):.1f}" r="3.5" fill="{c["series"]}" stroke="{c["surface"]}" stroke-width="1.5"/>')
+        o.extend(render_score_series(pts, x, y, c["series"], c["surface"]))
         d, v, _ = pts[-1]
         o.append(f'<text x="{x(d) + 10:.1f}" y="{y(v) - 8:.1f}" fill="{c["ink"]}" font-size="13" font-weight="600">{v:.1f}%</text>')
         if base_mean is None:
@@ -149,16 +165,7 @@ def render(pts, base_mean, start: datetime, n_samples: int, theme: str, fable=()
         cid = f"plotarea-{theme}"
         o.append(f'<clipPath id="{cid}"><rect x="{pl}" y="{pt}" width="{pw}" height="{ph}"/></clipPath>')
         o.append(f'<g clip-path="url(#{cid})">')
-        if len(fable) > 1:
-            upper = " L".join(f"{x(d):.1f},{y(v + 1.96 * s):.1f}" for d, v, s in fable)
-            lower = " L".join(f"{x(d):.1f},{y(v - 1.96 * s):.1f}" for d, v, s in reversed(fable))
-            o.append(f'<path d="M{upper} L{lower} Z" fill="{c["series2"]}" opacity="0.12"/>')
-            line = " L".join(f"{x(d):.1f},{y(v):.1f}" for d, v, _ in fable)
-            o.append(f'<path d="M{line}" fill="none" stroke="{c["series2"]}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>')
-        for d, v, s in fable:
-            o.append(f'<line x1="{x(d):.1f}" y1="{y(v - 1.96 * s):.1f}" x2="{x(d):.1f}" y2="{y(v + 1.96 * s):.1f}" '
-                     f'stroke="{c["series2"]}" stroke-width="1.5" opacity="0.5"/>')
-            o.append(f'<circle cx="{x(d):.1f}" cy="{y(v):.1f}" r="3.5" fill="{c["series2"]}" stroke="{c["surface"]}" stroke-width="1.5"/>')
+        o.extend(render_score_series(fable, x, y, c["series2"], c["surface"]))
         o.append("</g>")
         # direct end label like the Opus one ("Fable 5.2 84.6%"), no legend: the top right stays as it was.
         # Width is estimated generously (any fallback font fits), flipped left of the point if it would pass

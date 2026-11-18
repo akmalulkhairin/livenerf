@@ -15,8 +15,13 @@ def test_report_preserves_gap_and_matches_csv(tmp_path, monkeypatch):
             (folder / "complete").touch()
             (folder / "run.eval").touch()
     metric = SimpleNamespace(value=0.8)
-    score = SimpleNamespace(metrics={"mean": metric})
-    log = SimpleNamespace(results=SimpleNamespace(scores=[score]))
+    score = SimpleNamespace(name="compute_scorer", metrics={"mean": metric})
+    samples = [
+        SimpleNamespace(id=index, metadata={"cluster": cluster},
+                        scores={score.name: SimpleNamespace(value=value)})
+        for index, (value, cluster) in enumerate(((0.9, "a"), (0.9, "a"), (0.7, "b"), (0.7, "b")))
+    ]
+    log = SimpleNamespace(results=SimpleNamespace(scores=[score]), samples=samples)
     monkeypatch.setattr(codex_report, "read_eval_log", lambda *args, **kwargs: log)
 
     codex_report.write_report(tmp_path, models)
@@ -28,7 +33,11 @@ def test_report_preserves_gap_and_matches_csv(tmp_path, monkeypatch):
     chart = ElementTree.fromstring(svg)
     assert chart.attrib["viewBox"] == "0 0 960 380"
     assert len(chart.findall(".//s:circle", ns)) == 10
-    assert chart.find("s:path", ns).attrib["d"].count("M") == 2
+    bands = [path for path in chart.findall("s:path", ns) if path.attrib.get("opacity") == "0.12"]
+    assert len(bands) == 2
+    assert all(band.attrib["d"].count("M") == 1 for band in bands)
+    assert len([line for line in chart.findall("s:line", ns) if line.attrib.get("opacity") == "0.5"]) == 10
+    assert abs(codex_report.daily_scores(tmp_path, models)[0][1][models[0]].se - 0.1) < 1e-12
     assert svg.count('stroke-dasharray="6 5"') == 1
     assert "Astra baseline 80.0%" in svg
     assert "Sol 0/10" in svg

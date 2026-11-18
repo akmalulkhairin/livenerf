@@ -41,8 +41,10 @@ will start with fresh samples after calibration and validation.
 - [Pilot CSV](https://github.com/akmalulkhairin/livenerf/blob/codex-results/pilot.csv)
 
 The monitor's grader awards partial credit. A blank score means the run was
-missing or incomplete. The [study decision record](docs/adr/0001-use-livenerf-protocol-for-codex-drift-study.md)
-describes the separate protocol for determining sustained change.
+missing or incomplete. The chart shows approximate 95% confidence intervals
+for daily scores, with variability clustered by question template. The
+[study decision record](docs/adr/0001-use-livenerf-protocol-for-codex-drift-study.md)
+describes the separate decision rule for sustained change.
 
 ## How it works
 

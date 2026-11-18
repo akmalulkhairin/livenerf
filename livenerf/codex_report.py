@@ -1,15 +1,25 @@
 import csv
 import math
+from dataclasses import dataclass
 from datetime import date, timedelta
+from itertools import groupby
 from pathlib import Path
 from statistics import mean
 from tempfile import NamedTemporaryFile
 
+import pandas as pd
 from inspect_ai.log import read_eval_log
 
-from .plot import MIN_SPAN, THEMES
+from .analysis import clustered_mean
+from .plot import MIN_SPAN, THEMES, confidence_bounds, render_score_series
 
 BASELINE_DAYS = 10
+
+
+@dataclass(frozen=True)
+class DailyEstimate:
+    mean: float
+    se: float
 
 
 def daily_scores(root, models):
@@ -24,8 +34,12 @@ def daily_scores(root, models):
             folder = root / day.isoformat() / model
             if (folder / "complete").is_file():
                 (path,) = folder.glob("*.eval")
-                log = read_eval_log(path, header_only=True)
-                scores[model] = log.results.scores[0].metrics["mean"].value
+                log = read_eval_log(path)
+                scorer = log.results.scores[0]
+                values = pd.Series([sample.scores[scorer.name].value for sample in log.samples], dtype=float)
+                clusters = pd.Series([sample.metadata.get("cluster") or sample.id for sample in log.samples])
+                _, se = clustered_mean(values, clusters)
+                scores[model] = DailyEstimate(scorer.metrics["mean"].value, se)
         rows.append((day, scores))
     return rows
 
@@ -36,7 +50,7 @@ def render(rows, models, theme="light"):
     left, right, top, bottom = 64, width - 28, 92, height - 52
     start, last = rows[0][0], rows[-1][0]
     series = [
-        [(day, scores[model]) for day, scores in rows if model in scores]
+        [(day, 100 * scores[model].mean, 100 * scores[model].se) for day, scores in rows if model in scores]
         for model in models
     ]
     collecting = any(len(points) < BASELINE_DAYS for points in series)
@@ -46,7 +60,11 @@ def render(rows, models, theme="light"):
         for points in series
     )
     end = max(start + MIN_SPAN, max(last, baseline_end) + timedelta(days=4))
-    values = [100 * score for points in series for _, score in points]
+    values = [score for points in series for _, score, _ in points]
+    for points in series:
+        for _, score, se in points:
+            if math.isfinite(se):
+                values.extend(confidence_bounds(score, se))
     low = max(0, 10 * math.floor((min([40, *values]) - 1) / 10))
     high = min(100, 10 * math.ceil((max([80, *values]) + 1) / 10))
 
@@ -54,22 +72,23 @@ def render(rows, models, theme="light"):
         return left + (right - left) * (day - start).days / (end - start).days
 
     def y(score):
-        return top + (bottom - top) * (high - 100 * score) / (high - low)
+        return top + (bottom - top) * (high - min(high, max(low, score))) / (high - low)
 
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
         'font-family="-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" role="img" aria-labelledby="t d">',
         '<title id="t">GPT-6.2 Astra and Sol vs. their own baselines</title>',
-        '<desc id="d">Daily mean compute scores including partial credit. Missing points show incomplete runs. '
+        '<desc id="d">Daily mean compute scores with approximate item-clustered 95% intervals. '
+        'Missing points show incomplete runs. '
         'The shaded band shows baseline collection. Each dashed line is the mean of a model’s first ten complete runs.</desc>',
         f'<rect width="{width}" height="{height}" rx="10" fill="{colours["surface"]}"/>',
         f'<text x="{left}" y="38" fill="{colours["ink"]}" font-size="20" font-weight="600">'
         'GPT-6.2 Astra and Sol vs. their own baselines</text>',
         f'<text x="{left}" y="62" fill="{colours["ink2"]}" font-size="13">'
-        'Daily mean score on the fixed 10-question compute panel. Dashed lines show baseline means.</text>',
+        'Fixed 10-question compute panel with approximate 95% intervals. Dashed lines show baseline means.</text>',
     ]
     for percent in range(low, high + 1, 10):
-        level = y(percent / 100)
+        level = y(percent)
         parts.append(f'<line x1="{left}" y1="{level:.1f}" x2="{right}" y2="{level:.1f}" stroke="{colours["grid"]}"/>')
         parts.append(f'<text x="{left - 10}" y="{level + 4:.1f}" text-anchor="end" '
                      f'fill="{colours["muted"]}" font-size="12">{percent}%</text>')
@@ -88,26 +107,19 @@ def render(rows, models, theme="light"):
     for name, points, colour in zip(("Astra", "Sol"), series, (colours["series"], colours["series2"]), strict=True):
         progress.append(f"{name} {min(len(points), BASELINE_DAYS)}/{BASELINE_DAYS}")
         if len(points) >= BASELINE_DAYS:
-            baseline = mean(score for _, score in points[:BASELINE_DAYS])
+            baseline = mean(score for _, score, _ in points[:BASELINE_DAYS])
             level = y(baseline)
             parts.append(f'<line x1="{left}" y1="{level:.1f}" x2="{right}" y2="{level:.1f}" stroke="{colour}" '
                          'stroke-width="1.5" stroke-dasharray="6 5"/>')
-            baseline_labels.append((level, right - 4, "end", colour, f"{name} baseline {baseline:.1%}"))
+            baseline_labels.append((level, right - 4, "end", colour, f"{name} baseline {baseline:.1f}%"))
         if not points:
             continue
-        line = []
-        for index, (day, score) in enumerate(points):
-            connected = index > 0 and day - points[index - 1][0] == timedelta(days=1)
-            line.append(f'{"L" if connected else "M"}{x(day):.1f},{y(score):.1f}')
-        parts.append(f'<path d="{" ".join(line)}" fill="none" stroke="{colour}" stroke-width="2" '
-                     'stroke-linejoin="round" stroke-linecap="round"/>')
-        for day, score in points:
-            parts.append(f'<circle cx="{x(day):.1f}" cy="{y(score):.1f}" r="3.5" fill="{colour}" '
-                         f'stroke="{colours["surface"]}" stroke-width="1.5"/>')
-        day, score = points[-1]
+        for _, segment in groupby(enumerate(points), key=lambda pair: pair[1][0].toordinal() - pair[0]):
+            parts.extend(render_score_series([point for _, point in segment], x, y, colour, colours["surface"]))
+        day, score, _ = points[-1]
         anchor = "start" if x(day) + 120 <= right else "end"
         label_x = x(day) + (10 if anchor == "start" else -10)
-        latest_labels.append((y(score), label_x, anchor, colour, f"{name} {score:.1%}"))
+        latest_labels.append((y(score), label_x, anchor, colour, f"{name} {score:.1f}%"))
 
     for labels, min_y in ((latest_labels, top + 35), (baseline_labels, top + 14)):
         for index, (level, label_x, anchor, colour, label) in enumerate(sorted(labels)):
@@ -131,7 +143,8 @@ def write_report(root, models):
     with NamedTemporaryFile(mode="w", encoding="utf-8", newline="", dir=root, delete=False) as file:
         writer = csv.writer(file, lineterminator="\n")
         writer.writerow(("utc_day", *models))
-        writer.writerows((day, *(scores.get(model) for model in models)) for day, scores in rows)
+        writer.writerows((day, *(scores[model].mean if model in scores else "" for model in models))
+                         for day, scores in rows)
     Path(file.name).replace(root / "daily.csv")
     for theme, name in (("light", "daily.svg"), ("dark", "daily-dark.svg")):
         with NamedTemporaryFile(mode="w", encoding="utf-8", dir=root, delete=False) as file:
