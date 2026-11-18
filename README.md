@@ -80,7 +80,10 @@ once confirmation is complete, inspect the candidate panel and predicted
 sensitivity. After reviewing the candidate, `codex_design --freeze` records its
 question IDs, content hashes, control subset and predicted sensitivity under a
 SHA-256 lock. The freeze command requires a confirmed candidate.
-The timer waits for this review and freeze before starting validation.
+After the freeze, the timer publishes the panel digest, arm sizes and predicted
+sensitivity before starting validation. The design appears on the
+[results branch](https://github.com/akmalulkhairin/livenerf/tree/codex-results).
+To publish it manually, use `python -m livenerf.codex_publish --design`.
 
 `python -m livenerf.codex_validate` verifies the frozen panel and reports
 validation progress. Its `--batch` option collects budgeted validation
@@ -93,6 +96,7 @@ the frozen UTC-day series. The `--run` option attempts one sample per
 question and arm, resumes pending questions on the same day and checks
 the quota before each attempt. Drift runs use their own logs, separate
 from calibration and the public compute monitor.
+The series checks that the frozen design is public before collecting samples.
 
 `python -m livenerf.codex_analysis` reports closed 10-day windows and
 applies upstream's paired decision rule. It keeps gaps in the UTC

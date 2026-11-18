@@ -14,14 +14,15 @@ def commands_for_study(root):
 
     panel, digest = read_panel(root)
     validation = validation_result(panel, validation_rows(root, panel, digest))
+    publish_design = ("codex_publish", "--design")
     if validation["pending_pairs"]:
-        return [("codex_validate", "--batch", "16")]
+        return [publish_design, ("codex_validate", "--batch", "16")]
     if not validation["passed"]:
         print("Validation finished without passing. Review the instrument and control before the baseline.", flush=True)
-        return [("codex_validate",)]
+        return [publish_design, ("codex_validate",)]
     if not daily_capacity(PREFLIGHT_RESERVATION)["supports_daily_series"]:
         print("The weekly reservation policy cannot sustain the daily series.", flush=True)
-        return [("codex_series",)]
+        return [publish_design, ("codex_series",)]
     return [("codex_series", "--run"), ("codex_publish", "--study")]
 
 

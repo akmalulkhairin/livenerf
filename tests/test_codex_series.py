@@ -1,5 +1,6 @@
 import sys
 from datetime import datetime, timezone
+from subprocess import CalledProcessError
 
 import pytest
 
@@ -38,6 +39,30 @@ def test_main_does_not_start_a_baseline_that_cannot_fit_the_week(tmp_path, monke
     monkeypatch.setattr(codex_series, "run_day", lambda *args: pytest.fail("would start a baseline"))
     codex_series.main()
     assert "weekly reservation policy cannot sustain" in capsys.readouterr().out
+
+
+def test_unpublished_design_prevents_baseline(tmp_path, monkeypatch, capsys):
+    root = tmp_path / "study" / "test"
+    (root / "panel").mkdir(parents=True)
+    panel = {"panel": ["gpqa-a", "gpqa-b"], "control": ["gpqa-a", "gpqa-b"]}
+
+    def failed_publication(path):
+        assert path == root
+        raise CalledProcessError(1, "git push")
+
+    monkeypatch.setattr(sys, "argv", ["codex_series", "--run"])
+    monkeypatch.setattr(codex_series, "STUDY_HOME", tmp_path / "instrument")
+    monkeypatch.setattr(codex_series, "LOADERS", {})
+    monkeypatch.setattr(codex_series, "study_id", lambda: "test")
+    monkeypatch.setattr(codex_series, "restore_aime_2026", lambda: None)
+    monkeypatch.setattr(codex_series, "ready_panel", lambda *args: (panel, "digest", {}))
+    monkeypatch.setattr(codex_series, "PREFLIGHT_RESERVATION", 1)
+    monkeypatch.setattr(codex_series, "publish_design", failed_publication)
+    monkeypatch.setattr(codex_series, "run_day", lambda *args: pytest.fail("would start a baseline"))
+    with pytest.raises(SystemExit) as stopped:
+        codex_series.main()
+    assert stopped.value.code == 1
+    assert "Series stopped: Command 'git push'" in capsys.readouterr().err
 
 
 def test_series_resumes_one_attempt_per_arm_with_one_daily_reservation(tmp_path, monkeypatch):

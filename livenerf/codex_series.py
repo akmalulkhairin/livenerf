@@ -3,6 +3,7 @@ import asyncio
 import fcntl
 import json
 import os
+import subprocess
 from datetime import datetime, timezone
 
 from inspect_ai import eval
@@ -12,6 +13,7 @@ from .benchmarks.data import LOADERS
 from .codex_budget import BudgetStop, daily_capacity, reserve
 from .codex_calibrate import PREFLIGHT_RESERVATION, read_limits, restore_aime_2026, study_id
 from .codex_panel import read_panel, verified_items
+from .codex_publish import publish_design
 from .codex_validate import ARMS, validation_result, validation_rows
 from .providers.codex.instrument import CLI_VERSION, STUDY_HOME, InstrumentError, check_version
 
@@ -92,10 +94,11 @@ def main():
                 raise BudgetStop("The weekly reservation policy cannot sustain the daily series")
             with (STUDY_HOME.parent / ".lock").open("a") as lock:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                publish_design(root)
                 run_day(root, day, panel, digest, families)
     except (BudgetStop, BlockingIOError) as stop:
         print(f"Series paused: {stop}")
-    except (InstrumentError, OSError, TimeoutError, KeyError, ValueError) as error:
+    except (InstrumentError, OSError, TimeoutError, KeyError, ValueError, subprocess.SubprocessError) as error:
         parser.exit(1, f"Series stopped: {error}\n")
 
 

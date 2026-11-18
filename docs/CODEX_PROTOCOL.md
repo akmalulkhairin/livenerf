@@ -30,7 +30,8 @@ and confirmation.
    Use those scores to estimate its pass rate and exclude questions with
    a recorded classifier event during confirmation.
 3. Freeze the selected item IDs, content hashes and Sol subset. Publish the
-   predicted minimum detectable effect before starting the drift baseline.
+   panel digest, arm sizes and predicted minimum detectable effect before
+   starting the drift baseline. Keep the question IDs and logs local.
 4. Validate the instrument with four fresh samples per question and arm,
    subject to upstream's per-pair error stop. Astra runs at high, medium
    and low effort. Sol runs at high effort on the shared subset. Apply

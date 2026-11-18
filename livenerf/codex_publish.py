@@ -1,5 +1,6 @@
 import argparse
 import fcntl
+import json
 import os
 import re
 import subprocess
@@ -30,18 +31,14 @@ def git(directory, *args):
     return subprocess.run(["git", *args], cwd=directory, check=True, timeout=60)
 
 
-def study_readme(original, study):
-    section = f"## Drift study {study}"
-    if section in original:
-        return original
+def study_readme(original, study, *, design, daily):
+    section = f"## Drift study {study}\n"
     path = f"drift/{study}"
-    return original.rstrip() + f"""
-
-{section}
-
-The frozen Astra panel and shared Sol control are reported here. The earlier
-public compute monitor appears above.
-
+    links = ""
+    if design and f"{path}/design.json" not in original:
+        links += f"\n[Frozen panel summary and predicted sensitivity]({path}/design.json)\n"
+    if daily and f"{path}/daily.csv" not in original:
+        links += f"""
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="{path}/daily-dark.svg">
   <img alt="Daily scores and baseline progress for the calibrated drift study" src="{path}/daily.svg">
@@ -49,12 +46,20 @@ public compute monitor appears above.
 
 [Daily scores CSV]({path}/daily.csv)
 """
+    if not links:
+        return original
+    before, heading, after = original.partition(section)
+    if heading:
+        return before + heading + links + after
+    return original.rstrip() + "\n\n" + section + links
 
 
-def publish(source, *, study=None):
+def publish(source, *, study=None, design=None):
     if study is not None and not re.fullmatch(r"[a-f0-9]{16}", study):
         raise ValueError("A drift publication requires a verified study ID")
-    if not all((source / name).is_file() for name in REPORTS):
+    if source is None and (study is None or design is None):
+        raise ValueError("A design publication requires a verified study ID and design")
+    if source is not None and not all((source / name).is_file() for name in REPORTS):
         print("No daily report is ready to publish.", flush=True)
         return
     with TemporaryDirectory(prefix="livenerf-publication-") as directory:
@@ -62,18 +67,28 @@ def publish(source, *, study=None):
         checkout = Path(directory)
         reports = checkout / "drift" / study if study else checkout
         reports.mkdir(parents=True, exist_ok=True)
-        for name in REPORTS:
+        names = list(REPORTS) if source is not None else []
+        for name in names:
             copyfile(source / name, reports / name)
+        if design is not None:
+            path = reports / "design.json"
+            if path.exists() and path.read_bytes() != design:
+                raise ValueError("The published design differs from the frozen panel")
+            path.write_bytes(design)
+            names.append(path.name)
         readme = checkout / "README.md"
         original = readme.read_text()
-        updated = study_readme(original, study) if study else original.replace(
-            FIRST_REPORT, f"{DAILY_PICTURE}\n\n[Daily scores CSV](daily.csv)"
-        ).replace("![Daily benchmark scores](daily.svg)", DAILY_PICTURE).replace(
-            "![Pilot mean scores for Astra and Sol](pilot.svg)", "[Pilot chart](pilot.svg)"
-        )
+        if study:
+            updated = study_readme(original, study, design=design is not None, daily=source is not None)
+        else:
+            updated = original.replace(
+                FIRST_REPORT, f"{DAILY_PICTURE}\n\n[Daily scores CSV](daily.csv)"
+            ).replace("![Daily benchmark scores](daily.svg)", DAILY_PICTURE).replace(
+                "![Pilot mean scores for Astra and Sol](pilot.svg)", "[Pilot chart](pilot.svg)"
+            )
         if updated != original:
             readme.write_text(updated)
-        git(directory, "add", "--", "README.md", *(str((reports / name).relative_to(checkout)) for name in REPORTS))
+        git(directory, "add", "--", "README.md", *(str((reports / name).relative_to(checkout)) for name in names))
         diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=directory, timeout=15)
         if diff.returncode == 0:
             return
@@ -83,9 +98,24 @@ def publish(source, *, study=None):
         git(directory, "diff", "--check")
         git(directory, "-c", "user.name=LiveNerf for Codex",
             "-c", "user.email=akmalulkhairin@users.noreply.github.com",
-            "commit", "-m", f"chore(results): publish Codex series {study or source.name}")
+            "commit", "-m", f"chore(results): publish Codex {'design' if design else 'series'} {study or source.name}")
         git(directory, "-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential",
             "push", "origin", f"{BRANCH}:refs/heads/{BRANCH}")
+
+
+def publish_design(root):
+    panel, digest = read_panel(root)
+    sensitivity = panel["predicted_sensitivity"]
+    summary = {
+        "study_id": root.name,
+        "panel_sha256": digest,
+        "astra_items": len(panel["panel"]),
+        "sol_items": len(panel["control"]),
+        "samples_per_item_per_day": panel["samples_per_item_per_day"],
+        "predicted_sensitivity": {key: sensitivity[key] for key in ("se_points", "mde_points")},
+    }
+    design = (json.dumps(summary, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
+    publish(None, study=root.name, design=design)
 
 
 def publish_study(root, now):
@@ -102,17 +132,23 @@ def publish_study(root, now):
 
 def main():
     parser = argparse.ArgumentParser(description="Publish aggregate Codex benchmark results.")
-    parser.add_argument("--study", action="store_true", help="Publish the validated drift series")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--study", action="store_true", help="Publish the validated drift series")
+    mode.add_argument("--design", action="store_true", help="Publish the frozen panel's aggregate design")
     args = parser.parse_args()
     state = STUDY_HOME.parent
-    if args.study:
+    if args.study or args.design:
         if not state.is_dir():
             print("No frozen study is ready to publish.")
             return
         os.umask(0o077)
         with (state / ".lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            publish_study(state / "study" / study_id(), pd.Timestamp.now(tz="UTC"))
+            root = state / "study" / study_id()
+            if args.design:
+                publish_design(root)
+            else:
+                publish_study(root, pd.Timestamp.now(tz="UTC"))
     else:
         publish(state / series_id())
 

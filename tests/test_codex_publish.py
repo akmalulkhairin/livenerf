@@ -1,6 +1,10 @@
+import json
 import subprocess
 
+import pytest
+
 from livenerf import codex_publish
+from livenerf.codex_panel import freeze_panel
 
 
 def test_drift_publication_keeps_monitor_and_excludes_raw_logs(tmp_path, monkeypatch):
@@ -24,19 +28,47 @@ def test_drift_publication_keeps_monitor_and_excludes_raw_logs(tmp_path, monkeyp
     monkeypatch.setattr(codex_publish, "REMOTE", remote.as_uri())
 
     study = "0123456789abcdef"
+    root = tmp_path / study
+    digest = freeze_panel(root, {
+        "stage": "panel-candidate", "panel": ["gpqa-a", "gpqa-b"], "control": ["gpqa-a"],
+        "item_hashes": {"gpqa-a": "hash-a", "gpqa-b": "hash-b"},
+        "samples_per_item_per_day": 1, "predicted_sensitivity": {"se_points": 1.5, "mde_points": 5.13},
+    })
+    codex_publish.publish_design(root)
+    codex_publish.publish_design(root)
+    design = f"drift/{study}/design.json"
+    assert json.loads(subprocess.check_output(
+        ["git", "show", f"{codex_publish.BRANCH}:{design}"], cwd=remote, text=True
+    )) == {
+        "study_id": study, "panel_sha256": digest, "astra_items": 2, "sol_items": 1,
+        "samples_per_item_per_day": 1, "predicted_sensitivity": {"se_points": 1.5, "mde_points": 5.13},
+    }
+    readme = subprocess.check_output(
+        ["git", "show", f"{codex_publish.BRANCH}:README.md"], cwd=remote, text=True
+    )
+    assert design in readme and f"drift/{study}/daily.csv" not in readme
+    with pytest.raises(ValueError, match="published design differs"):
+        codex_publish.publish(None, study=study, design=b"{}\n")
+
     codex_publish.publish(source, study=study)
     codex_publish.publish(source, study=study)
     listing = subprocess.check_output(
         ["git", "ls-tree", "-r", "--name-only", codex_publish.BRANCH], cwd=remote, text=True
     ).splitlines()
-    assert set(listing) == {"README.md", "daily.csv", *(f"drift/{study}/{name}" for name in codex_publish.REPORTS)}
+    assert set(listing) == {"README.md", "daily.csv", design, *(f"drift/{study}/{name}" for name in codex_publish.REPORTS)}
+    readme = subprocess.check_output(
+        ["git", "show", f"{codex_publish.BRANCH}:README.md"], cwd=remote, text=True
+    )
+    assert readme.count(f"## Drift study {study}") == 1
+    assert readme.count(design) == 1
+    assert f"drift/{study}/daily.csv" in readme
     assert subprocess.check_output(
         ["git", "show", f"{codex_publish.BRANCH}:daily.csv"], cwd=remote, text=True
     ) == "utc_day,existing_monitor\n"
     revision_count = subprocess.check_output(
         ["git", "rev-list", "--count", codex_publish.BRANCH], cwd=remote, text=True
     ).strip()
-    assert revision_count == "2"
+    assert revision_count == "3"
 
 
 def test_unfrozen_study_never_reaches_the_publisher(tmp_path, monkeypatch):
