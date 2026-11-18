@@ -68,6 +68,12 @@ def next_batch(pool, screen, confirmation, stage, size):
     return (first or repeats)[:size]
 
 
+def scheduled_items(pending, stage):
+    if stage == "screen" and pending and pending[0][0] == "gpqa":
+        return [sample for sample in pending if sample[0] == "gpqa"]
+    return pending[:calibrate.CHUNK]
+
+
 async def read_limits():
     async with asyncio.timeout(20), app_server() as (server, _):
         return (await server.request("account/rateLimits/read", {}))["rateLimits"]
@@ -126,6 +132,7 @@ def collect_batch(root, pool, size, *, measure=False):
         pending = pending[:size - window["attempts"]]
         print(f"{stage}: measuring usage over up to {len(pending)} samples. Weekly meter {used}%.", flush=True)
     else:
+        pending = scheduled_items(pending, stage)
         used, points = reserve(budget, limits, PREFLIGHT_RESERVATION)
         weekly_reset = limits["primary"]["resetsAt"]
         print(f"{stage}: up to {len(pending)} samples. Weekly meter {used}%, study points reserved {points}.", flush=True)
@@ -178,11 +185,11 @@ def main():
     parser = argparse.ArgumentParser(description="Check the pinned Codex calibration pool or collect a batch.")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--one", action="store_const", dest="size", const=1, help="Collect one sample")
-    mode.add_argument("--batch", type=int, dest="size", metavar="SIZE", help="Collect up to 16 samples")
+    mode.add_argument("--batch", type=int, dest="size", metavar="SIZE", help="Collect a budgeted calibration batch")
     mode.add_argument("--measure", action="store_true", help="Run a bounded usage measurement with the account stop")
     args = parser.parse_args()
-    if args.size is not None and not 1 <= args.size <= calibrate.CHUNK:
-        parser.error(f"Batch size must be between 1 and {calibrate.CHUNK}.")
+    if args.size is not None and not 1 <= args.size <= MEASUREMENT_SAMPLES:
+        parser.error(f"Batch size must be between 1 and {MEASUREMENT_SAMPLES}.")
     os.umask(0o077)
     try:
         restore_aime_2026()

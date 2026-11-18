@@ -51,3 +51,11 @@ def test_measurement_resumes_with_original_limit_despite_reset_timestamp_change(
     codex_calibrate.record_measurement_attempt(tmp_path, window)
     with pytest.raises(BudgetStop, match="sample limit"):
         codex_calibrate.measurement_window(tmp_path, limits, 16)
+
+
+def test_larger_batches_stay_within_measured_screening_family():
+    science = [("gpqa", str(index)) for index in range(48)]
+    maths = [("aime", str(index)) for index in range(48)]
+    assert codex_calibrate.scheduled_items(science + maths, "screen") == science
+    assert codex_calibrate.scheduled_items(maths + science, "screen") == maths[:16]
+    assert codex_calibrate.scheduled_items(science + maths, "confirmation") == science[:16]

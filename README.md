@@ -104,6 +104,9 @@ reports stay separate from the ten-question monitoring results.
 A manually authorised `codex_calibrate --measure` pass collects up
 to 64 samples or stops after a three-point rise in the weekly meter.
 It keeps the account-wide stop and leaves the scheduled budget in place.
+The scheduled batch can screen up to 64 GPQA questions, matching the
+measured workload. Other families and confirmation still use up to 16
+questions per batch.
 
 ### Integrate upstream changes
 
