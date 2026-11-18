@@ -23,3 +23,8 @@ including calibration. Keep the account-wide stop at 50% in any reported usage
 window. Count usage we cannot attribute towards the study cap and leave headroom
 for delayed meter updates. Report the change the design is powered to detect
 at that budget.
+
+On 18 November 2026 the scheduled study allowance increased to 20 points.
+The first allowance could fit four daily reservations per week. The larger
+allowance fits seven and leaves five points for observed meter movement
+after the required headroom. The account-wide stop is 50%.

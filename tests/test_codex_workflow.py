@@ -14,9 +14,10 @@ def test_scheduled_workflow_respects_panel_validation_and_budget(tmp_path, monke
     validation["pending_pairs"] = 0
     assert codex_workflow.commands_for_study(tmp_path) == [publication, ("codex_validate",)]
     validation["passed"] = True
-    assert codex_workflow.commands_for_study(tmp_path) == [publication, ("codex_series",)]
+    with monkeypatch.context() as smaller_allowance:
+        smaller_allowance.setattr(codex_workflow, "PREFLIGHT_RESERVATION", 3)
+        assert codex_workflow.commands_for_study(tmp_path) == [publication, ("codex_series",)]
 
-    monkeypatch.setattr(codex_workflow, "daily_capacity", lambda reservation: {"supports_daily_series": True})
     assert codex_workflow.commands_for_study(tmp_path) == [
         ("codex_series", "--run"), ("codex_publish", "--study")
     ]

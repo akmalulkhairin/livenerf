@@ -17,7 +17,7 @@ def test_reservations_survive_restarts_and_include_meter_movement(tmp_path):
     assert reserve(path, limits, 2) == (20, 7)
     weekly["usedPercent"] = 21
     with pytest.raises(BudgetStop, match="weekly allowance"):
-        reserve(path, limits, 2)
+        reserve(path, limits, 2, weekly_points=10)
     weekly["usedPercent"] = 49
     with pytest.raises(BudgetStop, match="Account usage"):
         reserve(path, limits, 2)
@@ -29,7 +29,7 @@ def test_new_week_releases_only_previous_window_reservations(tmp_path, monkeypat
     monkeypatch.setattr(codex_budget.time, "time", lambda: clock)
     reset = clock + 60
     limits = {"primary": {"usedPercent": 20, "resetsAt": reset, "windowDurationMins": 10080}}
-    for booked in (2, 4, 6, 8):
+    for booked in range(2, 20, 2):
         assert reserve(path, limits, 2) == (20, booked)
     limits["primary"]["resetsAt"] += 30
     with pytest.raises(BudgetStop, match="weekly allowance"):
@@ -43,11 +43,11 @@ def test_manual_allowance_uses_the_same_ledger_and_account_stop(tmp_path):
     path = tmp_path / "quota.json"
     weekly = {"usedPercent": 20, "resetsAt": int(time.time()) + 3600, "windowDurationMins": 10080}
     limits = {"primary": weekly}
-    for _ in range(4):
+    for _ in range(9):
         reserve(path, limits, 2)
     with pytest.raises(BudgetStop, match="weekly allowance"):
         reserve(path, limits, 2)
-    assert reserve(path, limits, 2, weekly_points=20) == (20, 10)
+    assert reserve(path, limits, 2, weekly_points=30) == (20, 20)
     with pytest.raises(BudgetStop, match="weekly allowance"):
         reserve(path, limits, 0)
     weekly["usedPercent"] = 48

@@ -9,7 +9,7 @@ from livenerf.codex_budget import BudgetStop
 
 
 @pytest.mark.parametrize(("measure", "final_usage", "reason"), (
-    (False, 26, "weekly allowance"),
+    (False, 36, "weekly allowance"),
     (True, 21, "meter moved by at least"),
 ))
 def test_batch_checks_budget_before_each_call(tmp_path, monkeypatch, measure, final_usage, reason):

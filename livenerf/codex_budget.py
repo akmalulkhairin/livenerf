@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-WEEKLY_POINTS = 10
+WEEKLY_POINTS = 20
 ACCOUNT_STOP = 50
 METER_HEADROOM = 1
 

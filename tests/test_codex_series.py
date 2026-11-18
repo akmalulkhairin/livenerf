@@ -8,14 +8,14 @@ from livenerf import codex_series
 from livenerf.codex_budget import BudgetStop, daily_capacity
 
 
-def test_two_point_reservations_cannot_sustain_daily_series():
+def test_two_point_reservations_fit_the_weekly_allowance():
     assert daily_capacity(2) == {
-        "weekly_cap_points": 10,
+        "weekly_cap_points": 20,
         "minimum_weekly_reservation_points": 15,
-        "maximum_days_per_week": 4,
-        "supports_daily_series": False,
+        "maximum_days_per_week": 7,
+        "supports_daily_series": True,
     }
-    assert daily_capacity(1)["supports_daily_series"]
+    assert not daily_capacity(3)["supports_daily_series"]
 
 
 def test_series_requires_passing_validation(tmp_path, monkeypatch):
@@ -36,6 +36,7 @@ def test_main_does_not_start_a_baseline_that_cannot_fit_the_week(tmp_path, monke
     monkeypatch.setattr(codex_series, "study_id", lambda: "test")
     monkeypatch.setattr(codex_series, "restore_aime_2026", lambda: None)
     monkeypatch.setattr(codex_series, "ready_panel", lambda *args: (panel, "digest", {}))
+    monkeypatch.setattr(codex_series, "PREFLIGHT_RESERVATION", 3)
     monkeypatch.setattr(codex_series, "run_day", lambda *args: pytest.fail("would start a baseline"))
     codex_series.main()
     assert "weekly reservation policy cannot sustain" in capsys.readouterr().out
@@ -56,7 +57,6 @@ def test_unpublished_design_prevents_baseline(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(codex_series, "study_id", lambda: "test")
     monkeypatch.setattr(codex_series, "restore_aime_2026", lambda: None)
     monkeypatch.setattr(codex_series, "ready_panel", lambda *args: (panel, "digest", {}))
-    monkeypatch.setattr(codex_series, "PREFLIGHT_RESERVATION", 1)
     monkeypatch.setattr(codex_series, "publish_design", failed_publication)
     monkeypatch.setattr(codex_series, "run_day", lambda *args: pytest.fail("would start a baseline"))
     with pytest.raises(SystemExit) as stopped:

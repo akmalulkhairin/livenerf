@@ -65,7 +65,7 @@ The paired 99% intervals determine the drift verdict.
 
 ## Quota and readiness
 
-The scheduled study has a weekly allowance of 10 percentage points and an
+The scheduled study has a weekly allowance of 20 percentage points and an
 account-wide stop at 50% in any reported window. It counts ambiguous usage
 towards the study allowance and leaves headroom for meter lag.
 
@@ -80,8 +80,8 @@ alongside the account meter at the start and end of each batch. Use these
 records to compare batches from the same family. The meter is account-wide
 and can register usage after a batch has finished.
 
-The approximation used for current admissions reserves two points per
-daily run plus one point of weekly headroom. It can admit at most four
-days per week even before any meter movement. The series preflight reports
-this limit. Baseline collection needs a measured reservation policy that
-can sustain the daily schedule within the approved weekly allowance.
+The runner reserves two points per daily run and keeps one point of weekly
+headroom. Seven daily reservations and headroom account for 15 points,
+leaving five points for observed meter movement in the same window.
+The series preflight checks reservation capacity. The live meter can
+still pause collection if usage exceeds the available allowance.
