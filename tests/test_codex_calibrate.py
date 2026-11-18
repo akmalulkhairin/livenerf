@@ -15,7 +15,8 @@ from livenerf.codex_budget import BudgetStop
 def test_batch_checks_budget_before_each_call(tmp_path, monkeypatch, measure, final_usage, reason):
     meter = iter((18, 18, final_usage, final_usage))
     results = []
-    pool = {"gpqa": [{"id": item_id} for item_id in ("gpqa-first", "gpqa-second")]}
+    family = "gpqa" if measure else "mmlupro"
+    pool = {family: [{"id": f"{family}-{item}"} for item in ("first", "second")]}
     reset = int(time.time()) + 3600
 
     async def read_limits():
@@ -30,14 +31,17 @@ def test_batch_checks_budget_before_each_call(tmp_path, monkeypatch, measure, fi
 
     monkeypatch.setattr(codex_calibrate, "STUDY_HOME", tmp_path / "instrument")
     monkeypatch.setattr(codex_calibrate, "read_limits", read_limits)
-    monkeypatch.setattr(codex_calibrate.tasks, "gpqa", lambda **kwargs: None)
+    monkeypatch.setattr(codex_calibrate.tasks, family, lambda **kwargs: None)
     monkeypatch.setattr(codex_calibrate, "eval", evaluate)
     with pytest.raises(BudgetStop, match=reason):
         codex_calibrate.collect_batch(tmp_path, pool, 2, measure=measure)
 
-    assert results == ["gpqa-first"]
+    assert results == [f"{family}-first"]
     recorded = json.loads((tmp_path / "batches.jsonl").read_text())
     assert (recorded["attempts"], recorded["weekly_before"], recorded["weekly_after"]) == (1, 18, final_usage)
+    assert recorded["weekly_batch_before"] == 18
+    assert recorded["attempts_by_family"] == {family: 1}
+    assert recorded["scored_by_family"] == {family: 1}
     assert (tmp_path / "study-budget.json").exists() is not measure
 
 

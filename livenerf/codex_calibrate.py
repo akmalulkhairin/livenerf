@@ -7,6 +7,7 @@ import json
 import os
 import time
 import urllib.request
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -126,6 +127,8 @@ def collect_batch(root, pool, size, *, measure=False):
 
     budget = STUDY_HOME.parent / "study-budget.json"
     limits = asyncio.run(read_limits())
+    started_at = datetime.now(timezone.utc).isoformat()
+    batch_start_usage = usage_percent(limits["primary"])
     if measure:
         window = measurement_window(root, limits, size)
         used, weekly_reset = window["start"], window["reset"]
@@ -141,6 +144,8 @@ def collect_batch(root, pool, size, *, measure=False):
     cached_input_units = 0
     output_tokens = 0
     scored = 0
+    attempts_by_family = Counter()
+    scores_by_family = Counter()
     task_by_family = {}
     try:
         for family, item_id in pending:
@@ -152,6 +157,7 @@ def collect_batch(root, pool, size, *, measure=False):
                 reserve(budget, limits, 0)
             if family not in task_by_family:
                 task_by_family[family] = getattr(tasks, family)(panel="all")
+            attempts_by_family[family] += 1
             (log,) = eval(
                 task_by_family[family], model=f"codex-study/{MODEL}", effort=STUDY_EFFORT,
                 sample_id=[item_id], log_dir=str(root / stage), max_connections=1, max_retries=0,
@@ -159,7 +165,9 @@ def collect_batch(root, pool, size, *, measure=False):
                 metadata={"study_id": root.name},
             )
             completed += 1
-            scored += sum(not sample.error and bool(sample.scores) for sample in (log.samples or ()))
+            sample_scores = sum(not sample.error and bool(sample.scores) for sample in (log.samples or ()))
+            scores_by_family[family] += sample_scores
+            scored += sample_scores
             for usage in log.stats.model_usage.values():
                 input_units += usage.input_tokens
                 cached_input_units += usage.input_tokens_cache_read or 0
@@ -176,6 +184,8 @@ def collect_batch(root, pool, size, *, measure=False):
                 "utc": datetime.now(timezone.utc).isoformat(), "stage": stage, "weekly_before": used,
                 "mode": "measurement" if measure else "scheduled",
                 "weekly_after": weekly_after, "weekly_reset": weekly_reset,
+                "started_at": started_at, "weekly_batch_before": batch_start_usage,
+                "attempts_by_family": dict(attempts_by_family), "scored_by_family": dict(scores_by_family),
                 "attempts": completed, "scored": scored, "output_tokens": output_tokens,
                 "input_tokens": input_units, "cached_input_tokens": cached_input_units,
             }) + "\n")

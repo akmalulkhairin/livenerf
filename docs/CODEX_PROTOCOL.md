@@ -74,6 +74,11 @@ weekly usage rose by one point. That supports the current GPQA batch
 size. It cannot establish a precise cost conversion or predict the cost
 of a full Astra and Sol panel.
 
+The local calibration log records attempts and scores by benchmark family,
+alongside the account meter at the start and end of each batch. Use these
+records to compare batches from the same family. The meter is account-wide
+and can register usage after a batch has finished.
+
 The approximation used for current admissions reserves two points per
 daily run plus one point of weekly headroom. It can admit at most four
 days per week even before any meter movement. The series preflight reports
