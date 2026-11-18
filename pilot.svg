@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 300" aria-labelledby="title desc" role="img">
+<title id="title">Daily Codex compute scores</title>
+<desc id="desc">Mean compute score by model, including partial credit. Missing points show unscored days. Dashed lines show each model’s mean over its first ten complete days.</desc>
+<style>svg{color:#1e293b;font:13px system-ui,sans-serif}.bg{fill:#fff}.grid{stroke:#cbd5e1}text{fill:currentColor}.astra{--series:#2072a6}.sol{--series:#b45506}@media(prefers-color-scheme:dark){svg{color:#e2e8f0}.bg{fill:#0f172a}.grid{stroke:#475569}.astra{--series:#63b9ee}.sol{--series:#ffae67}}</style>
+<rect class="bg" width="100%" height="100%"/>
+<text x="22" y="29" font-size="19" font-weight="600">Daily Codex compute scores</text>
+<path class="grid" d="M62,246H752"/>
+<text x="52" y="250" text-anchor="end">0%</text>
+<path class="grid" d="M62,204H752"/>
+<text x="52" y="208" text-anchor="end">25%</text>
+<path class="grid" d="M62,162H752"/>
+<text x="52" y="166" text-anchor="end">50%</text>
+<path class="grid" d="M62,120H752"/>
+<text x="52" y="124" text-anchor="end">75%</text>
+<path class="grid" d="M62,78H752"/>
+<text x="52" y="82" text-anchor="end">100%</text>
+<text x="62.00" y="269" text-anchor="middle">18 Nov</text>
+<g class="astra" style="color:var(--series)"><text x="62" y="54">gpt-6.2-astra</text>
+<circle cx="62.00" cy="111.60" r="3" fill="none" stroke="currentColor" stroke-width="2"/>
+</g>
+<g class="sol" style="color:var(--series)"><text x="332" y="54">gpt-6.2-sol</text>
+<circle cx="62.00" cy="115.24" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
+</g>
+</svg>
