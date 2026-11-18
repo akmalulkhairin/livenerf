@@ -70,9 +70,10 @@ account-wide stop at 50% in any reported window. It counts ambiguous usage
 towards the study allowance and leaves headroom for meter lag.
 
 A one-off GPQA screening measurement scored 64 samples while displayed
-weekly usage rose by one point. That supports the current GPQA batch
-size. It cannot establish a precise cost conversion or predict the cost
-of a full Astra and Sol panel.
+weekly usage rose by one point. The first two manual MMLU-Pro screening
+batches scored 64 samples each while the displayed meter stayed flat. These runs
+support the 64-sample screening batches for GPQA and MMLU-Pro. They leave
+the exact cost conversion and the cost of a full Astra and Sol panel open.
 
 The local calibration log records attempts and scores by benchmark family,
 alongside the account meter at the start and end of each batch. Use these

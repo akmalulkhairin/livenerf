@@ -70,8 +70,10 @@ def next_batch(pool, screen, confirmation, stage, size):
 
 
 def scheduled_items(pending, stage):
-    if stage == "screen" and pending and pending[0][0] == "gpqa":
-        return [sample for sample in pending if sample[0] == "gpqa"]
+    if stage == "screen" and pending:
+        family = pending[0][0]
+        if family in {"gpqa", "mmlupro"}:
+            return [sample for sample in pending if sample[0] == family]
     return pending[:calibrate.CHUNK]
 
 
