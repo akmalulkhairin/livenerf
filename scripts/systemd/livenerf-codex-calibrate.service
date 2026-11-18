@@ -1,5 +1,7 @@
 [Unit]
 Description=Advance the LiveNerf Codex study
+StartLimitIntervalSec=5h
+StartLimitBurst=3
 
 [Service]
 Type=oneshot
@@ -8,6 +10,8 @@ EnvironmentFile=%h/.config/livenerf-codex/environment
 Environment=GIT_TERMINAL_PROMPT=0
 ExecStart=%h/.local/share/livenerf-codex/current/.venv/bin/python -m livenerf.codex_workflow
 TimeoutStartSec=75min
+Restart=on-failure
+RestartSec=5min
 UMask=0077
 PrivateTmp=yes
 NoNewPrivileges=yes

@@ -51,6 +51,9 @@ describes the separate decision rule for sustained change.
 - **Benchmark on the workstation.** The [study timer](scripts/systemd/livenerf-codex-calibrate.timer)
   advances calibration, validation or the daily series when the phase is ready.
   It uses a dedicated Codex profile and checks account usage before every sample.
+  A failed service can restart twice, with five minutes between attempts.
+  During the daily series, a restart resumes at the remaining questions for
+  that UTC day.
 - **Reports from saved logs.** The monitoring runner turns complete runs into a
   CSV and light and dark SVG charts. A local publisher pushes only the
   aggregates to the results branch. Raw captures and account sign-in stay local.
