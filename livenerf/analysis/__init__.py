@@ -65,6 +65,8 @@ def load_samples(log_dir: str) -> pd.DataFrame:
                 "task_version": log.eval.task_version,
                 "model": log.eval.model,
                 "arm": (log.eval.metadata or {}).get("arm", "measured"),
+                "study_id": (log.eval.metadata or {}).get("study_id"),
+                "panel_sha256": (log.eval.metadata or {}).get("panel_sha256"),
                 "harness_sha": (log.eval.metadata or {}).get("harness_sha"),
                 "harness_content": ((log.eval.metadata or {}).get("harness_sha") or "").partition("+")[2] or None,
                 "funding_source": (log.eval.metadata or {}).get("funding_source"),  # absent = the Max plan
@@ -84,7 +86,7 @@ def load_samples(log_dir: str) -> pd.DataFrame:
                 "output_tokens": usage.output_tokens if usage else math.nan,
                 "reasoning_tokens": usage.reasoning_tokens if usage and usage.reasoning_tokens is not None else math.nan,
                 "input_tokens": usage.input_tokens if usage else math.nan,
-                "cli_version": out_meta.get("cli_version"),
+                "cli_version": out_meta.get("cli_version") or (log.eval.metadata or {}).get("cli_version"),
                 "served_models": ",".join(out_meta.get("served_models") or []),
                 "hour_utc": created.hour,
             })
@@ -196,7 +198,8 @@ def realized_mde(baseline: pd.DataFrame) -> dict:
     return {"items": len(g), "se_points": 100 * se, "mde_points": 100 * (Z_DECISION + 0.842) * se}
 
 
-def summarize(df: pd.DataFrame, baseline_end: datetime | None = None, freq: str = "D") -> pd.DataFrame:
+def summarize(df: pd.DataFrame, baseline_end: datetime | None = None, freq: str = "D",
+              series_start: datetime | None = None) -> pd.DataFrame:
     baseline_end = baseline_end or baseline_end_for(df)
     ok = df[df["error"].isna()]
     baseline = ok[ok["run_created"] < pd.Timestamp(baseline_end)]
@@ -205,7 +208,8 @@ def summarize(df: pd.DataFrame, baseline_end: datetime | None = None, freq: str 
     # number of windows and every window has the same length
     ts = df["run_created"].dt.tz_convert("UTC").dt.tz_localize(None)
     days = WINDOW_DAYS[freq.upper()]
-    origin = ts.min().floor("D")
+    origin = (pd.Timestamp(series_start).tz_convert("UTC").tz_localize(None).floor("D")
+              if series_start is not None else ts.min().floor("D"))
     starts = origin + ((ts - origin) // pd.Timedelta(days=days)) * pd.Timedelta(days=days)
     cutoff = pd.Timestamp(baseline_end).tz_convert("UTC").tz_localize(None)
     for start, window in df.groupby(starts):

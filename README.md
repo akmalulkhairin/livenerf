@@ -87,6 +87,17 @@ samples. Astra runs at three effort levels on the panel. Sol runs on the
 shared GPQA questions. The A/A check splits Astra's high-effort samples to
 check that the instrument does not report a change between like runs.
 
+After validation, `python -m livenerf.codex_series` checks readiness for
+the frozen UTC-day series. The `--run` option attempts one sample per
+question and arm, resumes pending questions on the same day and checks
+the quota before each attempt. Drift runs use their own logs, separate
+from calibration and the public compute monitor.
+
+`python -m livenerf.codex_analysis` reports closed 10-day windows and
+applies upstream's paired decision rule. It keeps gaps in the UTC
+calendar and counts missing scheduled samples against window coverage.
+When Sol's comparison is incomplete, the report leaves attribution open.
+
 A manually authorised `codex_calibrate --measure` pass collects up
 to 64 samples or stops after a three-point rise in the weekly meter.
 It keeps the account-wide stop and leaves the scheduled budget in place.
