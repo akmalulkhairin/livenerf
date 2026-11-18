@@ -30,8 +30,8 @@ and graders. The chart and aggregate scores reflect Codex runs.
 
 ## Study status
 
-Astra is in screening. Sol is the candidate control and will run on a shared
-subset after validation. The ten-question public monitor is paused during
+Astra is in screening. We will validate Sol as the candidate control on a
+shared subset before the drift baseline. The ten-question public monitor is paused during
 calibration. Its chart stays available for reference. The drift baseline
 will start with fresh samples after calibration and validation.
 
