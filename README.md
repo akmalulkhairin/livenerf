@@ -75,6 +75,12 @@ The last two commands check the instrument and dataset pins without submitting
 benchmark questions. To run a single sample, pass `--one` to the calibration
 command. The runner checks the account meter before allowing the call.
 
+Use `python -m livenerf.codex_design` to check calibration progress and,
+once confirmation is complete, inspect the candidate panel and predicted
+sensitivity. A manually authorised `codex_calibrate --measure` pass collects up
+to 64 samples or stops after a three-point rise in the weekly meter.
+It keeps the account-wide stop and leaves the scheduled budget in place.
+
 ### Integrate upstream changes
 
 Merge upstream into a separate branch, run CI locally and check the

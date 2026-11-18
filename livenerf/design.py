@@ -79,13 +79,19 @@ def standard_candidates() -> list[dict]:
     p is the Beta(1, 1) posterior mean of the confirmation samples, which played no part in selection.
     Before confirmation exists, p falls back to the screen samples and `confirmed` is False.
     """
-    from .benchmarks.calibrate import CONFIRM_DIR, CONFIRM_N, eligible, history, panel_eligible
+    from .benchmarks.calibrate import CONFIRM_DIR, history
     from .benchmarks.data import LOADERS
 
-    hist, conf = history(), history(CONFIRM_DIR)
+    pool = {family: LOADERS[family]() for family in PRIMARY_FAMILIES}
+    return calibrated_candidates(pool, history(), history(CONFIRM_DIR))
+
+
+def calibrated_candidates(pool, hist, conf) -> list[dict]:
+    from .benchmarks.calibrate import CONFIRM_N, eligible, panel_eligible
+
     out = []
-    for family in PRIMARY_FAMILIES:
-        for it in LOADERS[family]():
+    for family, items in pool.items():
+        for it in items:
             h, c = hist[it["id"]], conf[it["id"]]
             if not h["scores"] or not h["tokens"]:
                 continue
@@ -120,6 +126,11 @@ def _mde(panel: list[dict], m: float) -> tuple[float, float]:
     var = sum(c["p"] * (1 - c["p"]) * (1 / n + 1 / (m * BASELINE_DAYS / 7)) for c in panel) / k**2
     se = math.sqrt(var)
     return 100 * se, 100 * (Z_ALPHA + Z_POWER) * se
+
+
+def daily_sensitivity(panel: list[dict]) -> dict:
+    se, mde = _mde(panel, m=7)
+    return {"se_points": se, "mde_points": mde}
 
 
 def plan(max_weekly_points: float, tpp: float, target_mde: float, synthetic_share: float, control_share: float,

@@ -13,13 +13,15 @@ from inspect_ai import eval
 
 from .benchmarks import calibrate, tasks
 from .benchmarks.data import AIME_SHA256, LOADERS, _aime_norm, cache_dir
-from .codex_budget import BudgetStop, reserve, usage_percent
+from .codex_budget import BudgetStop, check_account, reserve, usage_percent
 from .common import REPO_ROOT
 from .providers.codex.instrument import CLI_VERSION, MODEL, STUDY_HOME, InstrumentError, app_server, check_version
 
 AIME_2026_REVISION = "d2de22f3c656b4f56cf8981212186377d1e23bc3"
 STUDY_EFFORT = "high"
 PREFLIGHT_RESERVATION = 2
+MEASUREMENT_SAMPLES = 64
+METER_SIGNAL = 3
 
 
 def restore_aime_2026():
@@ -68,7 +70,7 @@ async def read_limits():
         return (await server.request("account/rateLimits/read", {}))["rateLimits"]
 
 
-def collect_batch(root, pool, size):
+def collect_batch(root, pool, size, *, measure=False):
     screen = calibrate.history(root / "screen")
     confirmation = calibrate.history(root / "confirmation")
     stage = "screen"
@@ -81,15 +83,31 @@ def collect_batch(root, pool, size):
         return
 
     budget = STUDY_HOME.parent / "study-budget.json"
-    used, points = reserve(budget, asyncio.run(read_limits()), PREFLIGHT_RESERVATION)
-    print(f"{stage}: up to {len(pending)} samples. Weekly meter {used}%, study points reserved {points}.", flush=True)
+    limits = asyncio.run(read_limits())
+    if measure:
+        used, _ = check_account(limits)
+        print(f"{stage}: measuring usage over up to {len(pending)} samples. Weekly meter {used}%.", flush=True)
+    else:
+        used, points = reserve(budget, limits, PREFLIGHT_RESERVATION)
+        print(f"{stage}: up to {len(pending)} samples. Weekly meter {used}%, study points reserved {points}.", flush=True)
+    weekly_reset = limits["primary"]["resetsAt"]
     completed = 0
+    input_units = 0
+    cached_input_units = 0
     output_tokens = 0
     scored = 0
     task_by_family = {}
     try:
         for family, item_id in pending:
-            reserve(budget, asyncio.run(read_limits()), 0)
+            limits = asyncio.run(read_limits())
+            if measure:
+                current, reset = check_account(limits)
+                if reset != weekly_reset:
+                    raise BudgetStop("The weekly usage window changed during measurement")
+                if current - used >= METER_SIGNAL:
+                    raise BudgetStop(f"The weekly meter moved by at least {METER_SIGNAL} points")
+            else:
+                reserve(budget, limits, 0)
             if family not in task_by_family:
                 task_by_family[family] = getattr(tasks, family)(panel="all")
             (log,) = eval(
@@ -100,17 +118,24 @@ def collect_batch(root, pool, size):
             )
             completed += 1
             scored += sum(not sample.error and bool(sample.scores) for sample in (log.samples or ()))
-            output_tokens += sum(usage.output_tokens for usage in log.stats.model_usage.values())
+            for usage in log.stats.model_usage.values():
+                input_units += usage.input_tokens
+                cached_input_units += usage.input_tokens_cache_read or 0
+                output_tokens += usage.output_tokens
             print(f"{stage}: {completed}/{len(pending)} attempted, {scored} scored.", flush=True)
     finally:
         try:
-            weekly_after = usage_percent(asyncio.run(read_limits())["primary"])
+            final = asyncio.run(read_limits())["primary"]
+            weekly_after = usage_percent(final) if final["resetsAt"] == weekly_reset else None
         except (InstrumentError, BudgetStop, TimeoutError, OSError, KeyError, ValueError):
             weekly_after = None
         with (root / "batches.jsonl").open("a") as file:
             file.write(json.dumps({
                 "utc": datetime.now(timezone.utc).isoformat(), "stage": stage, "weekly_before": used,
-                "weekly_after": weekly_after, "attempts": completed, "scored": scored, "output_tokens": output_tokens,
+                "mode": "measurement" if measure else "scheduled",
+                "weekly_after": weekly_after, "weekly_reset": weekly_reset,
+                "attempts": completed, "scored": scored, "output_tokens": output_tokens,
+                "input_tokens": input_units, "cached_input_tokens": cached_input_units,
             }) + "\n")
 
 
@@ -119,6 +144,7 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--one", action="store_const", dest="size", const=1, help="Collect one sample")
     mode.add_argument("--batch", type=int, dest="size", metavar="SIZE", help="Collect up to 16 samples")
+    mode.add_argument("--measure", action="store_true", help="Run a bounded usage measurement with the account stop")
     args = parser.parse_args()
     if args.size is not None and not 1 <= args.size <= calibrate.CHUNK:
         parser.error(f"Batch size must be between 1 and {calibrate.CHUNK}.")
@@ -130,13 +156,13 @@ def main():
             print(f"{family}: {len(items)} questions verified", flush=True)
         root = STUDY_HOME.parent / "study" / study_id()
         print(f"Study {root.name}", flush=True)
-        if args.size is None:
+        if args.size is None and not args.measure:
             return
         check_version()
         with (STUDY_HOME.parent / ".lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             root.mkdir(parents=True, exist_ok=True)
-            collect_batch(root, pool, args.size)
+            collect_batch(root, pool, MEASUREMENT_SAMPLES if args.measure else args.size, measure=args.measure)
     except (BlockingIOError, BudgetStop) as stop:
         print(f"Calibration paused: {stop}")
     except (InstrumentError, OSError, TimeoutError, ValueError, KeyError) as error:

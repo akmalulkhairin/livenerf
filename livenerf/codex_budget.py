@@ -19,7 +19,7 @@ def usage_percent(window):
     return percent
 
 
-def reserve(path, limits, points):
+def check_account(limits, points=0):
     weekly = limits["primary"]
     reset = weekly["resetsAt"]
     if weekly["windowDurationMins"] != 10080 or type(reset) is not int or reset <= time.time():
@@ -28,7 +28,11 @@ def reserve(path, limits, points):
     secondary = limits.get("secondary")
     if max(used, usage_percent(secondary) if secondary else 0) + points + METER_HEADROOM > ACCOUNT_STOP:
         raise BudgetStop("Account usage has reached the study stop")
+    return used, reset
 
+
+def reserve(path, limits, points):
+    used, reset = check_account(limits, points)
     state = json.loads(path.read_text()) if path.exists() else {"reset": reset, "start": used, "peak": used, "reserved": 0}
     if reset < state["reset"]:
         raise BudgetStop("Codex returned an older weekly window")
