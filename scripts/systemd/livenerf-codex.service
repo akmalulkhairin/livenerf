@@ -1,0 +1,14 @@
+[Unit]
+Description=LiveNerf Codex daily benchmark
+OnSuccess=livenerf-codex-publish.service
+OnFailure=livenerf-codex-publish.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/.local/share/livenerf-codex/current
+EnvironmentFile=%h/.config/livenerf-codex/environment
+ExecStart=%h/.local/share/livenerf-codex/current/.venv/bin/python -m livenerf.codex_daily --logs %h/.local/state/livenerf-codex
+TimeoutStartSec=70min
+UMask=0077
+PrivateTmp=yes
+NoNewPrivileges=yes

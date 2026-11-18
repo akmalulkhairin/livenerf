@@ -1,0 +1,9 @@
+[Unit]
+Description=Check the budget for LiveNerf Codex calibration daily
+
+[Timer]
+OnCalendar=*-*-* 08:20:00 Asia/Kuala_Lumpur
+Persistent=true
+
+[Install]
+WantedBy=timers.target

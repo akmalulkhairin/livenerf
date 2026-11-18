@@ -1,0 +1,12 @@
+[Unit]
+Description=Collect one LiveNerf Codex calibration batch
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/.local/share/livenerf-codex/current
+EnvironmentFile=%h/.config/livenerf-codex/environment
+ExecStart=%h/.local/share/livenerf-codex/current/.venv/bin/python -m livenerf.codex_calibrate --batch 16
+TimeoutStartSec=65min
+UMask=0077
+PrivateTmp=yes
+NoNewPrivileges=yes

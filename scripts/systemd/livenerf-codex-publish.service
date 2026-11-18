@@ -1,0 +1,17 @@
+[Unit]
+Description=Publish LiveNerf Codex aggregate results
+StartLimitIntervalSec=30min
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/.local/share/livenerf-codex/current
+EnvironmentFile=%h/.config/livenerf-codex/environment
+Environment=GIT_TERMINAL_PROMPT=0
+ExecStart=%h/.local/share/livenerf-codex/current/.venv/bin/python -m livenerf.codex_publish
+TimeoutStartSec=5min
+Restart=on-failure
+RestartSec=5min
+UMask=0077
+PrivateTmp=yes
+NoNewPrivileges=yes

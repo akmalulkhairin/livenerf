@@ -1,31 +1,131 @@
+<div align="center">
+
 # LiveNerf for Codex
 
-A fork of [LiveNerf](https://github.com/ninjahawk/livenerf) that studies
-GPT-6.2 Astra and Sol as served through the Codex CLI.
+*Tracking sustained changes in GPT performance as served through the Codex CLI.*
 
-[Results](https://github.com/akmalulkhairin/livenerf/tree/codex-results) ·
-[Daily scores CSV](https://github.com/akmalulkhairin/livenerf/blob/codex-results/daily.csv) ·
-[Upstream study](https://github.com/ninjahawk/livenerf)
+<p>
+  <a href="https://github.com/akmalulkhairin/livenerf/actions/workflows/ci.yml"><img src="https://github.com/akmalulkhairin/livenerf/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
+  <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat-square" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/models-GPT--6.2%20Astra%20%2B%20Sol-2a78d6?style=flat-square" alt="Models GPT-6.2 Astra and Sol">
+  <a href="#study-status"><img src="https://img.shields.io/badge/study-screening-e8a13c?style=flat-square" alt="Study stage screening"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square" alt="MIT licence"></a>
+</p>
+
+[The plan](docs/adr/0001-use-livenerf-protocol-for-codex-drift-study.md) · [Results](#results) · [How it works](#how-it-works) · [Upstream protocol](PREREGISTRATION.md) · [Cite](#cite)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/daily-dark.svg">
-  <img alt="LiveNerf for Codex daily monitoring scores for Astra and Sol" src="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/daily.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/daily.svg">
+  <img alt="Daily compute scores and baseline progress for GPT-6.2 Astra and Sol" src="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/daily.svg" width="100%">
 </picture>
+
+</div>
+
+---
+
+This fork adapts [LiveNerf](https://github.com/ninjahawk/livenerf) to study
+GPT-6.2 through Codex. It reuses upstream's benchmark sources, Inspect tasks
+and graders. The chart and aggregate scores reflect Codex runs.
 
 ## Study status
 
-The chart shows the ten-question public compute monitor. Monitoring is paused
-while we calibrate a separate panel for the drift study. Astra is the primary
-model and Sol is the candidate control. The drift study will collect a fresh
-baseline after calibration and validation.
+Astra is in screening. Sol is the candidate control and will run on a shared
+subset after validation. The ten-question public monitor is paused during
+calibration. Its chart stays available for reference. The drift baseline
+will start with fresh samples after calibration and validation.
+
+## Results
+
+- [Monitoring chart and CSV](https://github.com/akmalulkhairin/livenerf/tree/codex-results)
+- [Pilot CSV](https://github.com/akmalulkhairin/livenerf/blob/codex-results/pilot.csv)
+
+The monitor's grader awards partial credit. A blank score means the run was
+missing or incomplete. The [study decision record](docs/adr/0001-use-livenerf-protocol-for-codex-drift-study.md)
+describes the separate protocol for determining sustained change.
+
+## How it works
+
+- **Benchmark on the workstation.** The [calibration timer](scripts/systemd/livenerf-codex-calibrate.timer)
+  resumes screening or confirmation within the weekly quota. It uses a dedicated
+  Codex profile and checks account usage before every sample.
+- **Reports from saved logs.** The monitoring runner turns complete runs into a
+  CSV and light and dark SVG charts. A local publisher pushes only the
+  aggregates to the results branch. Raw captures and account sign-in stay local.
+- **Tests on GitHub.** [CI](.github/workflows/ci.yml) checks the runner, provider,
+  scoring and reporting, and verifies that the public panel can be regenerated.
+  It uses no Codex login or quota.
+
+### Reproduce locally
+
+The benchmark requires Python 3.11+, `uv` and the pinned Codex CLI.
+On Linux, the systemd units are under [scripts/systemd](scripts/systemd).
+
+```sh
+uv sync --locked
+uv run --locked pytest -q
+CODEX_HOME="$HOME/.local/state/livenerf-codex/instrument" codex login
+uv run --locked python -m livenerf.providers.codex.instrument
+uv run --locked python -m livenerf.codex_calibrate
+```
+
+The last two commands check the instrument and dataset pins without submitting
+benchmark questions. To run a single sample, pass `--one` to the calibration
+command. The runner checks the account meter before allowing the call.
+
+### Integrate upstream changes
+
+Merge upstream into a separate branch, run CI locally and check the
+calibration preflight before merging to `main`.
+
+```sh
+git remote add upstream https://github.com/ninjahawk/livenerf.git
+git fetch upstream
+git switch -c integrate-upstream
+git merge upstream/main
+uv sync --locked
+uv run --locked pytest -q
+uv run --locked python -m livenerf.codex_calibrate
+```
+
+Add the upstream remote only once. Deploy a tested revision to a separate
+directory under `~/.local/share/livenerf-codex/`. Switch its `current` symlink
+after checking the CLI pin and dataset sources. A change to the prompts,
+sample-shaping code or dependency lock starts a new study series.
 
 ## Acknowledgements
 
-LiveNerf for Codex builds on the benchmark and study design by ninjahawk and
-the [LiveNerf contributors](https://github.com/ninjahawk/livenerf). The test
-harness uses [Inspect](https://inspect.aisi.org.uk/), developed by the UK AI
-Security Institute and Meridian Labs. The fork retains the upstream
-[MIT licence](LICENSE).
+- Original benchmark, reporting design and charts from [LiveNerf](https://github.com/ninjahawk/livenerf).
+- Evaluation framework from [Inspect](https://inspect.aisi.org.uk/), developed
+  by the UK AI Security Institute and Meridian Labs.
+- Upstream's statistical method follows [Adding Error Bars to Evals](https://arxiv.org/abs/2411.00640).
+- The centred README layout follows LiveNerf, which credits [nanochat](https://github.com/karpathy/nanochat).
 
-When citing a Codex result, include the run date and the commit from the
-[results branch](https://github.com/akmalulkhairin/livenerf/tree/codex-results).
+LiveNerf for Codex is an independent fork.
+
+## Cite
+
+Cite LiveNerf for the original benchmark and LiveNerf for Codex for this
+adaptation. Include the run date and results commit when citing a result.
+
+```bibtex
+@misc{livenerf,
+  author = {{ninjahawk}},
+  title = {livenerf: Tracking Post-Launch Capability Drift in Frontier Models},
+  year = {2026},
+  publisher = {GitHub},
+  url = {https://github.com/ninjahawk/livenerf}
+}
+
+@misc{livenerf-for-codex,
+  author = {{akmalulkhairin}},
+  title = {LiveNerf for Codex},
+  year = {2026},
+  publisher = {GitHub},
+  url = {https://github.com/akmalulkhairin/livenerf}
+}
+```
+
+## Licence
+
+[MIT](LICENSE)
