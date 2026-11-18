@@ -6,13 +6,16 @@ partial credit, and each model gets a baseline after ten complete days.
 This panel tracks daily scores while a drift study would require a
 calibrated panel.
 
-![Daily benchmark scores](daily.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="daily-dark.svg">
+  <img alt="Daily compute scores for Astra and Sol against their own baselines" src="daily.svg">
+</picture>
 
 [Daily scores CSV](daily.csv)
 
 ## Pilot
 
-![Pilot mean scores for Astra and Sol](pilot.svg)
+[Pilot chart](pilot.svg)
 
 [18 November 2026 pilot scores CSV](pilot.csv)
 
