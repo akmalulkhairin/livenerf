@@ -6,7 +6,9 @@ partial credit, and each model gets a baseline after ten complete days.
 This panel tracks daily scores while a drift study would require a
 calibrated panel.
 
-<!-- Daily report appears after the first completed run. -->
+![Daily benchmark scores](daily.svg)
+
+[Daily scores CSV](daily.csv)
 
 ## Pilot
 
