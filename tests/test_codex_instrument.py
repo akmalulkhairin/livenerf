@@ -12,6 +12,7 @@ def test_reservations_survive_restarts_and_include_meter_movement(tmp_path):
     limits = {"primary": weekly}
     assert reserve(path, limits, 2) == (17, 2)
     weekly["usedPercent"] = 20
+    weekly["resetsAt"] += 30
     assert reserve(path, limits, 2) == (20, 7)
     weekly["usedPercent"] = 21
     with pytest.raises(BudgetStop, match="weekly allowance"):

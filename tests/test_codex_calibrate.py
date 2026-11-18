@@ -39,3 +39,15 @@ def test_batch_checks_budget_before_each_call(tmp_path, monkeypatch, measure, fi
     recorded = json.loads((tmp_path / "batches.jsonl").read_text())
     assert (recorded["attempts"], recorded["weekly_before"], recorded["weekly_after"]) == (1, 18, final_usage)
     assert (tmp_path / "study-budget.json").exists() is not measure
+
+
+def test_measurement_resumes_with_original_limit_despite_reset_timestamp_change(tmp_path):
+    reset = int(time.time()) + 3600
+    original = {"mode": "measurement", "weekly_before": 19, "weekly_reset": reset, "attempts": 15}
+    (tmp_path / "batches.jsonl").write_text(json.dumps(original) + "\n")
+    limits = {"primary": {"usedPercent": 19, "resetsAt": reset + 30, "windowDurationMins": 10080}}
+    window = codex_calibrate.measurement_window(tmp_path, limits, 16)
+    assert window == {"start": 19, "reset": reset, "attempts": 15}
+    codex_calibrate.record_measurement_attempt(tmp_path, window)
+    with pytest.raises(BudgetStop, match="sample limit"):
+        codex_calibrate.measurement_window(tmp_path, limits, 16)

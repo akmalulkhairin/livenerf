@@ -34,11 +34,9 @@ def check_account(limits, points=0):
 def reserve(path, limits, points):
     used, reset = check_account(limits, points)
     state = json.loads(path.read_text()) if path.exists() else {"reset": reset, "start": used, "peak": used, "reserved": 0}
-    if reset < state["reset"]:
-        raise BudgetStop("Codex returned an older weekly window")
-    if reset > state["reset"]:
-        if time.time() < state["reset"]:
-            raise BudgetStop("Codex changed the weekly reset before the stored window ended")
+    if time.time() >= state["reset"]:
+        if reset <= state["reset"]:
+            raise BudgetStop("Codex has not confirmed a new weekly window")
         state = {"reset": reset, "start": used, "peak": used, "reserved": 0}
     state["peak"] = max(state["peak"], used)
     observed = state["peak"] - state["start"]

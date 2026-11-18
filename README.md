@@ -77,7 +77,17 @@ command. The runner checks the account meter before allowing the call.
 
 Use `python -m livenerf.codex_design` to check calibration progress and,
 once confirmation is complete, inspect the candidate panel and predicted
-sensitivity. A manually authorised `codex_calibrate --measure` pass collects up
+sensitivity. After reviewing the candidate, `codex_design --freeze` records its
+question IDs, content hashes, control subset and predicted sensitivity under a
+SHA-256 lock. The freeze command requires a confirmed candidate.
+
+`python -m livenerf.codex_validate` verifies the frozen panel and reports
+validation progress. Its `--batch` option collects budgeted validation
+samples. Astra runs at three effort levels on the panel. Sol runs on the
+shared GPQA questions. The A/A check splits Astra's high-effort samples to
+check that the instrument does not report a change between like runs.
+
+A manually authorised `codex_calibrate --measure` pass collects up
 to 64 samples or stops after a three-point rise in the weekly meter.
 It keeps the account-wide stop and leaves the scheduled budget in place.
 

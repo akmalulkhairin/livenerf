@@ -5,8 +5,11 @@ import hashlib
 import io
 import json
 import os
+import time
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 import pandas as pd
 from inspect_ai import eval
@@ -70,6 +73,39 @@ async def read_limits():
         return (await server.request("account/rateLimits/read", {}))["rateLimits"]
 
 
+def measurement_window(root, limits, size):
+    used, reset = check_account(limits)
+    checkpoint = root / "measurement.json"
+    if checkpoint.exists():
+        window = json.loads(checkpoint.read_text())
+    else:
+        path = root / "batches.jsonl"
+        previous = [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+        previous = [batch for batch in previous if batch.get("mode") == "measurement"]
+        window = {"start": previous[0]["weekly_before"] if previous else used,
+                  "reset": previous[0]["weekly_reset"] if previous else reset,
+                  "attempts": sum(batch["attempts"] for batch in previous)}
+    if window["attempts"] >= size:
+        raise BudgetStop("The one-off measurement has reached its sample limit")
+    check_measurement(limits, window["start"], window["reset"])
+    return window
+
+
+def record_measurement_attempt(root, window):
+    window["attempts"] += 1
+    with NamedTemporaryFile(mode="w", encoding="utf-8", dir=root, delete=False) as file:
+        json.dump(window, file)
+    Path(file.name).replace(root / "measurement.json")
+
+
+def check_measurement(limits, starting_usage, reset):
+    used, _ = check_account(limits)
+    if time.time() >= reset or used < starting_usage:
+        raise BudgetStop("The original measurement window is no longer current")
+    if used - starting_usage >= METER_SIGNAL:
+        raise BudgetStop(f"The weekly meter moved by at least {METER_SIGNAL} points")
+
+
 def collect_batch(root, pool, size, *, measure=False):
     screen = calibrate.history(root / "screen")
     confirmation = calibrate.history(root / "confirmation")
@@ -85,12 +121,14 @@ def collect_batch(root, pool, size, *, measure=False):
     budget = STUDY_HOME.parent / "study-budget.json"
     limits = asyncio.run(read_limits())
     if measure:
-        used, _ = check_account(limits)
+        window = measurement_window(root, limits, size)
+        used, weekly_reset = window["start"], window["reset"]
+        pending = pending[:size - window["attempts"]]
         print(f"{stage}: measuring usage over up to {len(pending)} samples. Weekly meter {used}%.", flush=True)
     else:
         used, points = reserve(budget, limits, PREFLIGHT_RESERVATION)
+        weekly_reset = limits["primary"]["resetsAt"]
         print(f"{stage}: up to {len(pending)} samples. Weekly meter {used}%, study points reserved {points}.", flush=True)
-    weekly_reset = limits["primary"]["resetsAt"]
     completed = 0
     input_units = 0
     cached_input_units = 0
@@ -101,11 +139,8 @@ def collect_batch(root, pool, size, *, measure=False):
         for family, item_id in pending:
             limits = asyncio.run(read_limits())
             if measure:
-                current, reset = check_account(limits)
-                if reset != weekly_reset:
-                    raise BudgetStop("The weekly usage window changed during measurement")
-                if current - used >= METER_SIGNAL:
-                    raise BudgetStop(f"The weekly meter moved by at least {METER_SIGNAL} points")
+                check_measurement(limits, used, weekly_reset)
+                record_measurement_attempt(root, window)
             else:
                 reserve(budget, limits, 0)
             if family not in task_by_family:
@@ -126,7 +161,7 @@ def collect_batch(root, pool, size, *, measure=False):
     finally:
         try:
             final = asyncio.run(read_limits())["primary"]
-            weekly_after = usage_percent(final) if final["resetsAt"] == weekly_reset else None
+            weekly_after = usage_percent(final) if time.time() < weekly_reset else None
         except (InstrumentError, BudgetStop, TimeoutError, OSError, KeyError, ValueError):
             weekly_after = None
         with (root / "batches.jsonl").open("a") as file:
