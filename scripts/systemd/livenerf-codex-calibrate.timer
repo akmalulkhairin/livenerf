@@ -1,5 +1,5 @@
 [Unit]
-Description=Check the budget for LiveNerf Codex calibration daily
+Description=Check the LiveNerf Codex study each day
 
 [Timer]
 OnCalendar=*-*-* 08:20:00 Asia/Kuala_Lumpur

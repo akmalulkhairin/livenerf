@@ -48,9 +48,9 @@ describes the separate decision rule for sustained change.
 
 ## How it works
 
-- **Benchmark on the workstation.** The [calibration timer](scripts/systemd/livenerf-codex-calibrate.timer)
-  resumes screening or confirmation within the weekly quota. It uses a dedicated
-  Codex profile and checks account usage before every sample.
+- **Benchmark on the workstation.** The [study timer](scripts/systemd/livenerf-codex-calibrate.timer)
+  advances calibration, validation or the daily series when the phase is ready.
+  It uses a dedicated Codex profile and checks account usage before every sample.
 - **Reports from saved logs.** The monitoring runner turns complete runs into a
   CSV and light and dark SVG charts. A local publisher pushes only the
   aggregates to the results branch. Raw captures and account sign-in stay local.
@@ -80,6 +80,7 @@ once confirmation is complete, inspect the candidate panel and predicted
 sensitivity. After reviewing the candidate, `codex_design --freeze` records its
 question IDs, content hashes, control subset and predicted sensitivity under a
 SHA-256 lock. The freeze command requires a confirmed candidate.
+The timer waits for this review and freeze before starting validation.
 
 `python -m livenerf.codex_validate` verifies the frozen panel and reports
 validation progress. Its `--batch` option collects budgeted validation
@@ -103,7 +104,8 @@ reports stay separate from the ten-question monitoring results.
 Use `python -m livenerf.codex_publish --study` to publish the validated
 study's aggregate CSV and charts. It keeps each study in its own results
 directory and adds a link from the results README. It requires saved
-series samples before it can publish anything.
+series samples before it can publish anything. The scheduled workflow
+runs the same publisher after an admitted series attempt.
 
 A manually authorised `codex_calibrate --measure` pass collects up
 to 64 samples or stops after a three-point rise in the weekly meter.
