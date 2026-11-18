@@ -9,7 +9,7 @@ from inspect_ai import eval
 
 from .benchmarks import tasks
 from .benchmarks.data import LOADERS
-from .codex_budget import BudgetStop, reserve
+from .codex_budget import BudgetStop, daily_capacity, reserve
 from .codex_calibrate import PREFLIGHT_RESERVATION, read_limits, restore_aime_2026, study_id
 from .codex_panel import read_panel, verified_items
 from .codex_validate import ARMS, validation_result, validation_rows
@@ -80,12 +80,16 @@ def main():
         restore_aime_2026()
         panel, digest, families = ready_panel(root, {family: loader() for family, loader in LOADERS.items()})
         directory = root / "series" / day
+        capacity = daily_capacity(PREFLIGHT_RESERVATION)
         print(json.dumps({
             "study_id": root.name, "panel_sha256": digest, "utc_day": day,
             "astra_items": len(panel["panel"]), "sol_items": len(panel["control"]),
             "pending": len(pending_samples(directory, panel)),
+            "capacity": capacity,
         }))
         if args.run:
+            if not capacity["supports_daily_series"]:
+                raise BudgetStop("The weekly reservation policy cannot sustain the daily series")
             with (STUDY_HOME.parent / ".lock").open("a") as lock:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 run_day(root, day, panel, digest, families)

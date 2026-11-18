@@ -5,7 +5,8 @@ import os
 
 from .benchmarks import calibrate
 from .benchmarks.data import LOADERS
-from .codex_calibrate import METER_SIGNAL, restore_aime_2026, study_id
+from .codex_budget import daily_capacity
+from .codex_calibrate import METER_SIGNAL, PREFLIGHT_RESERVATION, restore_aime_2026, study_id
 from .codex_panel import freeze_panel
 from .design import calibrated_candidates, daily_sensitivity
 from .providers.codex.instrument import STUDY_HOME
@@ -90,7 +91,10 @@ def main():
             parser.exit(1, f"Could not freeze the panel: {error}\n")
     else:
         design = calibration_design(pool, calibrate.history(root / "screen"), calibrate.history(root / "confirmation"))
-    print(json.dumps({"study_id": identifier, **design, "quota_measurement": measurement_summary(root)}, indent=2))
+    print(json.dumps({
+        "study_id": identifier, **design, "quota_measurement": measurement_summary(root),
+        "series_capacity": daily_capacity(PREFLIGHT_RESERVATION),
+    }, indent=2))
 
 
 if __name__ == "__main__":

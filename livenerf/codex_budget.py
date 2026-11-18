@@ -12,6 +12,16 @@ class BudgetStop(RuntimeError):
     pass
 
 
+def daily_capacity(reservation):
+    required = 7 * reservation + METER_HEADROOM
+    return {
+        "weekly_cap_points": WEEKLY_POINTS,
+        "minimum_weekly_reservation_points": required,
+        "maximum_days_per_week": min(7, (WEEKLY_POINTS - METER_HEADROOM) // reservation),
+        "supports_daily_series": required <= WEEKLY_POINTS,
+    }
+
+
 def usage_percent(window):
     percent = window["usedPercent"]
     if type(percent) is not int or not 0 <= percent <= 100:

@@ -2,6 +2,7 @@ import time
 
 import pytest
 
+from livenerf import codex_budget
 from livenerf.codex_budget import BudgetStop, reserve
 from livenerf.providers.codex.instrument import InstrumentError, validate_event
 
@@ -20,6 +21,22 @@ def test_reservations_survive_restarts_and_include_meter_movement(tmp_path):
     weekly["usedPercent"] = 49
     with pytest.raises(BudgetStop, match="Account usage"):
         reserve(path, limits, 2)
+
+
+def test_new_week_releases_only_previous_window_reservations(tmp_path, monkeypatch):
+    path = tmp_path / "quota.json"
+    clock = 1_000_000
+    monkeypatch.setattr(codex_budget.time, "time", lambda: clock)
+    reset = clock + 60
+    limits = {"primary": {"usedPercent": 20, "resetsAt": reset, "windowDurationMins": 10080}}
+    for booked in (2, 4, 6, 8):
+        assert reserve(path, limits, 2) == (20, booked)
+    limits["primary"]["resetsAt"] += 30
+    with pytest.raises(BudgetStop, match="weekly allowance"):
+        reserve(path, limits, 2)
+    clock = reset + 30
+    limits["primary"] = {"usedPercent": 0, "resetsAt": reset + 604800, "windowDurationMins": 10080}
+    assert reserve(path, limits, 2) == (0, 2)
 
 
 @pytest.mark.parametrize(("event", "marker"), (

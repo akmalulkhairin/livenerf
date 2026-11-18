@@ -12,7 +12,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square" alt="MIT licence"></a>
 </p>
 
-[The plan](docs/adr/0001-use-livenerf-protocol-for-codex-drift-study.md) · [Results](#results) · [How it works](#how-it-works) · [Upstream protocol](PREREGISTRATION.md) · [Cite](#cite)
+[The plan](docs/CODEX_PROTOCOL.md) · [Results](#results) · [How it works](#how-it-works) · [Upstream protocol](PREREGISTRATION.md) · [Cite](#cite)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/daily-dark.svg">
