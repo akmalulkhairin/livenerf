@@ -121,6 +121,11 @@ The scheduled batch can screen up to 64 GPQA questions, matching the
 measured workload. Other families and confirmation still use up to 16
 questions per batch.
 
+For an authorised larger screening batch, run `python -m livenerf.codex_calibrate
+--batch 64 --screen-family mmlupro --weekly-points 20` with the agreed weekly
+cap. It books the batch against the same local budget ledger and applies the
+account-wide stop before each sample. The scheduled cap remains 10 points.
+
 ### Integrate upstream changes
 
 Merge upstream into a separate branch, run CI locally and check the

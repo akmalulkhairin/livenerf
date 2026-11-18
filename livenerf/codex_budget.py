@@ -41,7 +41,7 @@ def check_account(limits, points=0):
     return used, reset
 
 
-def reserve(path, limits, points):
+def reserve(path, limits, points, *, weekly_points=WEEKLY_POINTS):
     used, reset = check_account(limits, points)
     state = json.loads(path.read_text()) if path.exists() else {"reset": reset, "start": used, "peak": used, "reserved": 0}
     if time.time() >= state["reset"]:
@@ -52,7 +52,7 @@ def reserve(path, limits, points):
     observed = state["peak"] - state["start"]
     state["reserved"] += points
     reserved = observed + state["reserved"]
-    if reserved + METER_HEADROOM > WEEKLY_POINTS:
+    if reserved + METER_HEADROOM > weekly_points:
         raise BudgetStop("The study has reached its weekly allowance")
     with NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, delete=False) as file:
         json.dump(state, file)

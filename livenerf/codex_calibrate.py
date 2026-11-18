@@ -17,7 +17,7 @@ from inspect_ai import eval
 
 from .benchmarks import calibrate, tasks
 from .benchmarks.data import AIME_SHA256, LOADERS, _aime_norm, cache_dir
-from .codex_budget import BudgetStop, check_account, reserve, usage_percent
+from .codex_budget import ACCOUNT_STOP, WEEKLY_POINTS, BudgetStop, check_account, reserve, usage_percent
 from .common import REPO_ROOT
 from .providers.codex.instrument import CLI_VERSION, MODEL, STUDY_HOME, InstrumentError, app_server, check_version
 
@@ -113,16 +113,18 @@ def check_measurement(limits, starting_usage, reset):
         raise BudgetStop(f"The weekly meter moved by at least {METER_SIGNAL} points")
 
 
-def collect_batch(root, pool, size, *, measure=False):
+def collect_batch(root, pool, size, *, measure=False, screen_family=None, weekly_points=WEEKLY_POINTS):
     screen = calibrate.history(root / "screen")
     confirmation = calibrate.history(root / "confirmation")
     stage = "screen"
+    if screen_family:
+        pool = {screen_family: pool[screen_family]}
     pending = next_batch(pool, screen, confirmation, stage, size)
-    if not pending:
+    if not pending and not screen_family:
         stage = "confirmation"
         pending = next_batch(pool, screen, confirmation, stage, size)
     if not pending:
-        print("Screening and confirmation are complete.")
+        print(f"{screen_family} screening is complete." if screen_family else "Screening and confirmation are complete.")
         return
 
     budget = STUDY_HOME.parent / "study-budget.json"
@@ -135,8 +137,9 @@ def collect_batch(root, pool, size, *, measure=False):
         pending = pending[:size - window["attempts"]]
         print(f"{stage}: measuring usage over up to {len(pending)} samples. Weekly meter {used}%.", flush=True)
     else:
-        pending = scheduled_items(pending, stage)
-        used, points = reserve(budget, limits, PREFLIGHT_RESERVATION)
+        if not screen_family:
+            pending = scheduled_items(pending, stage)
+        used, points = reserve(budget, limits, PREFLIGHT_RESERVATION, weekly_points=weekly_points)
         weekly_reset = limits["primary"]["resetsAt"]
         print(f"{stage}: up to {len(pending)} samples. Weekly meter {used}%, study points reserved {points}.", flush=True)
     completed = 0
@@ -154,7 +157,9 @@ def collect_batch(root, pool, size, *, measure=False):
                 check_measurement(limits, used, weekly_reset)
                 record_measurement_attempt(root, window)
             else:
-                reserve(budget, limits, 0)
+                if screen_family and time.time() >= weekly_reset:
+                    raise BudgetStop("The authorised screening window ended")
+                reserve(budget, limits, 0, weekly_points=weekly_points)
             if family not in task_by_family:
                 task_by_family[family] = getattr(tasks, family)(panel="all")
             attempts_by_family[family] += 1
@@ -182,7 +187,8 @@ def collect_batch(root, pool, size, *, measure=False):
         with (root / "batches.jsonl").open("a") as file:
             file.write(json.dumps({
                 "utc": datetime.now(timezone.utc).isoformat(), "stage": stage, "weekly_before": used,
-                "mode": "measurement" if measure else "scheduled",
+                "mode": "measurement" if measure else "manual-screen" if screen_family else "scheduled",
+                "weekly_cap_points": weekly_points if not measure else None,
                 "weekly_after": weekly_after, "weekly_reset": weekly_reset,
                 "started_at": started_at, "weekly_batch_before": batch_start_usage,
                 "attempts_by_family": dict(attempts_by_family), "scored_by_family": dict(scores_by_family),
@@ -197,9 +203,17 @@ def main():
     mode.add_argument("--one", action="store_const", dest="size", const=1, help="Collect one sample")
     mode.add_argument("--batch", type=int, dest="size", metavar="SIZE", help="Collect a budgeted calibration batch")
     mode.add_argument("--measure", action="store_true", help="Run a bounded usage measurement with the account stop")
+    parser.add_argument("--screen-family", choices=LOADERS, help="Screen only this family in a manual batch")
+    parser.add_argument("--weekly-points", type=int, help="Use an explicitly authorised manual screening allowance")
     args = parser.parse_args()
     if args.size is not None and not 1 <= args.size <= MEASUREMENT_SAMPLES:
         parser.error(f"Batch size must be between 1 and {MEASUREMENT_SAMPLES}.")
+    if args.screen_family and args.size is None:
+        parser.error("Manual family screening requires an explicit batch size.")
+    if args.weekly_points is not None and (
+        not args.screen_family or not WEEKLY_POINTS <= args.weekly_points <= ACCOUNT_STOP
+    ):
+        parser.error(f"--weekly-points requires --screen-family and a cap of {WEEKLY_POINTS} to {ACCOUNT_STOP}.")
     os.umask(0o077)
     try:
         restore_aime_2026()
@@ -214,7 +228,10 @@ def main():
         with (STUDY_HOME.parent / ".lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             root.mkdir(parents=True, exist_ok=True)
-            collect_batch(root, pool, MEASUREMENT_SAMPLES if args.measure else args.size, measure=args.measure)
+            collect_batch(
+                root, pool, MEASUREMENT_SAMPLES if args.measure else args.size, measure=args.measure,
+                screen_family=args.screen_family, weekly_points=args.weekly_points or WEEKLY_POINTS,
+            )
     except (BlockingIOError, BudgetStop) as stop:
         print(f"Calibration paused: {stop}")
     except (InstrumentError, OSError, TimeoutError, ValueError, KeyError) as error:
