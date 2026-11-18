@@ -100,6 +100,10 @@ When Sol's comparison is incomplete, the report leaves attribution open.
 Pass `--write` to generate the local drift chart and daily scores CSV. The
 chart uses the same error bars and baseline shading as the monitor. Drift
 reports stay separate from the ten-question monitoring results.
+Use `python -m livenerf.codex_publish --study` to publish the validated
+study's aggregate CSV and charts. It keeps each study in its own results
+directory and adds a link from the results README. It requires saved
+series samples before it can publish anything.
 
 A manually authorised `codex_calibrate --measure` pass collects up
 to 64 samples or stops after a three-point rise in the weekly meter.

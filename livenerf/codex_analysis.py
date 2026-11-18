@@ -173,6 +173,7 @@ def write_formal_report(root, result):
         status = "Baseline coverage is incomplete"
     baseline = StudyBaseline((cutoff - pd.Timedelta(days=1)).date(), means, status)
     write_charts(out, rows, tuple(model_by_arm.values()), study_baseline=baseline)
+    return out
 
 
 if __name__ == "__main__":
