@@ -1,8 +1,9 @@
+import json
 from collections import defaultdict
 
 import pytest
 
-from livenerf.codex_design import calibration_design
+from livenerf.codex_design import calibration_design, measurement_summary
 from livenerf.codex_panel import freeze_panel, read_panel, verified_items
 from livenerf.design import daily_sensitivity
 
@@ -42,3 +43,22 @@ def test_design_uses_confirmed_items_and_live_nerf_sensitivity(tmp_path):
     (tmp_path / "panel" / "panel.json").write_text("{}")
     with pytest.raises(ValueError, match="SHA-256"):
         read_panel(tmp_path)
+
+
+def test_quota_summary_keeps_one_measurement_and_waits_for_signal(tmp_path):
+    first = {"mode": "measurement", "weekly_before": 19, "weekly_after": 20,
+             "weekly_reset": 30, "attempts": 15, "scored": 14}
+    log = tmp_path / "batches.jsonl"
+    log.write_text(json.dumps(first) + "\n")
+    assert measurement_summary(tmp_path)["calls_per_observed_point"] is None
+
+    second = {**first, "attempts": 33, "scored": 33, "weekly_after": 22}
+    with log.open("a") as file:
+        file.write(json.dumps(second) + "\n")
+    (tmp_path / "measurement.json").write_text(json.dumps({"attempts": 49}))
+    assert measurement_summary(tmp_path)["calls_per_observed_point"] is None
+
+    (tmp_path / "measurement.json").write_text(json.dumps({"attempts": 48}))
+    summary = measurement_summary(tmp_path)
+    assert summary["scored"] == 47
+    assert summary["calls_per_observed_point"] == 16

@@ -97,6 +97,9 @@ from calibration and the public compute monitor.
 applies upstream's paired decision rule. It keeps gaps in the UTC
 calendar and counts missing scheduled samples against window coverage.
 When Sol's comparison is incomplete, the report leaves attribution open.
+Pass `--write` to generate the local drift chart and daily scores CSV. The
+chart uses the same error bars and baseline shading as the monitor. Drift
+reports stay separate from the ten-question monitoring results.
 
 A manually authorised `codex_calibrate --measure` pass collects up
 to 64 samples or stops after a three-point rise in the weekly meter.

@@ -2,7 +2,7 @@ import math
 
 import pandas as pd
 
-from livenerf.codex_analysis import attribute, window_decisions
+from livenerf.codex_analysis import attribute, window_decisions, write_formal_report
 from livenerf.providers.codex.instrument import CLI_VERSION
 
 
@@ -31,3 +31,28 @@ def test_drift_keeps_missing_windows_and_excludes_open_window():
     sustained.loc[2, "samples"] = 19
     sol_gap = window_decisions(sustained, start, start + pd.Timedelta(days=30), 2, "frozen")
     assert attribute(astra, sol_gap)[-1]["outcome"] == "control-inconclusive"
+
+
+def test_formal_chart_keeps_the_utc_baseline_and_missing_control(tmp_path):
+    result = {
+        "stage": "series",
+        "series_started": "2026-11-18T00:00:00+00:00",
+        "baseline_ends": "2026-11-28T00:00:00+00:00",
+        "panel_sizes": {"measured": 5, "control": 2},
+        "daily": {
+            "measured": [{"day": "2026-11-18", "score": 0.8, "se": 0.12, "samples": 5, "errors": 0, "missing": 0}],
+            "control": [{"day": "2026-11-20", "score": 0.5, "se": 0.25, "samples": 2, "errors": 0, "missing": 0}],
+        },
+        "windows": {
+            "measured": [{"covered": True, "score": 0.65}],
+            "control": [{"covered": False, "score": 0.5}],
+        },
+    }
+    write_formal_report(tmp_path, result)
+    report = tmp_path / "reports"
+    chart = (report / "daily-dark.svg").read_text()
+    assert "Astra baseline 65.0%" in chart
+    assert chart.count("stroke-dasharray") == 1
+    assert chart.count("<circle") == 2
+    assert "Baseline coverage is incomplete" in chart
+    assert "2026-11-19,gpt-6.2-sol,,,0,0,2" in (report / "daily.csv").read_text()

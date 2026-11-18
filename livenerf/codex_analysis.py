@@ -1,12 +1,17 @@
+import argparse
+import csv
 import json
 import math
 from datetime import datetime, timezone
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 import pandas as pd
 
 from .analysis import BASELINE_HOURS, MAX_ERROR_RATE, WINDOW_DAYS, decision, load_samples, realized_mde, summarize
 from .codex_calibrate import study_id
 from .codex_panel import read_panel
+from .codex_report import DailyEstimate, StudyBaseline, write_charts
 from .codex_validate import ARMS
 from .providers.codex.instrument import CLI_VERSION, STUDY_HOME
 
@@ -39,6 +44,7 @@ def window_decisions(summary, start, now, items, harness):
             "covered": covered, "cli_versions": row.get("cli_versions", ""),
             "harness_hashes": row.get("harness_hashes", ""),
             "delta": delta if math.isfinite(delta) else None, "se": se if math.isfinite(se) else None,
+            "score": finite(row.get("score")),
         })
 
     baseline_covered = windows[0]["covered"]
@@ -53,6 +59,10 @@ def window_decisions(summary, start, now, items, harness):
         rule = by_window.get(row["window"], {})
         row.update(qualifies=rule.get("qualifies", False), change_declared=rule.get("change_declared", False))
     return windows
+
+
+def finite(value):
+    return value if value is not None and math.isfinite(value) else None
 
 
 def attribute(measured, control):
@@ -86,9 +96,12 @@ def report(root, now):
         raise ValueError("The series contains an unrecognised arm")
     windows = {}
     sensitivity = {}
+    daily = {}
+    panel_sizes = {}
     for arm, model_key, panel_key in (("measured", "high", "panel"), ("control", "control", "control")):
         records = data[data["arm"] == arm] if not data.empty else data
         ids = set(panel[panel_key])
+        panel_sizes[arm] = len(ids)
         if not records.empty:
             if (
                 not records["study_id"].eq(root.name).all()
@@ -103,20 +116,73 @@ def report(root, now):
                 raise ValueError("Series records contain duplicate attempts or precede the study")
         summary = summarize(records, baseline_end=cutoff, freq="F", series_start=start) if not records.empty else records
         windows[arm] = window_decisions(summary, start, now, len(ids), root.name)
+        daily[arm] = [
+            {"day": row.window, "score": finite(row.score), "se": finite(row.score_se),
+             "samples": int(row.samples), "errors": int(row.errors), "missing": len(ids) - int(row.samples)}
+            for row in summarize(records, baseline_end=cutoff, series_start=start).itertuples()
+        ] if not records.empty else []
         if windows[arm] and windows[arm][0]["covered"]:
             baseline = records[(records["run_created"] < cutoff) & records["error"].isna()]
             sensitivity[arm] = {key: value for key, value in realized_mde(baseline).items()
                                 if math.isfinite(value)}
 
     return {
-        "stage": "series", "panel_sha256": digest, "baseline_ends": cutoff.isoformat(),
+        "stage": "series", "panel_sha256": digest, "series_started": start.isoformat(),
+        "baseline_ends": cutoff.isoformat(), "panel_sizes": panel_sizes, "daily": daily,
         "baseline_sensitivity": sensitivity, "windows": windows,
         "decisions": attribute(windows["measured"], windows["control"]),
     }
 
 
+def write_formal_report(root, result):
+    if result["stage"] != "series" or not any(result["daily"].values()):
+        return
+    out = root / "reports"
+    out.mkdir(exist_ok=True)
+    model_by_arm = {"measured": ARMS["high"][0], "control": ARMS["control"][0]}
+    daily = {arm: {row["day"]: row for row in rows} for arm, rows in result["daily"].items()}
+    start = pd.Timestamp(result["series_started"])
+    cutoff = pd.Timestamp(result["baseline_ends"])
+    last = max(day for rows in daily.values() for day in rows)
+    rows = []
+    with NamedTemporaryFile(mode="w", encoding="utf-8", newline="", dir=out, delete=False) as file:
+        writer = csv.writer(file, lineterminator="\n")
+        writer.writerow(("utc_day", "model", "score", "standard_error", "samples", "errors", "missing"))
+        for day in pd.date_range(start, pd.Timestamp(last, tz="UTC")):
+            iso = day.date().isoformat()
+            values = {}
+            for arm, model in model_by_arm.items():
+                row = daily[arm].get(iso)
+                if row is None:
+                    writer.writerow((iso, model, None, None, 0, 0, result["panel_sizes"][arm]))
+                    continue
+                writer.writerow((iso, model, *(row[key] for key in ("score", "se", "samples", "errors", "missing"))))
+                if row["score"] is not None:
+                    values[model] = DailyEstimate(row["score"], row["se"] if row["se"] is not None else math.nan)
+            rows.append((day.date(), values))
+    Path(file.name).replace(out / "daily.csv")
+
+    means = {
+        model_by_arm[arm]: windows[0]["score"] for arm, windows in result["windows"].items()
+        if windows and windows[0]["covered"] and windows[0]["score"] is not None
+    }
+    status = ""
+    if not result["windows"]["measured"]:
+        status = f"Collecting the UTC baseline · closes {cutoff:%b %d}"
+    elif len(means) != len(model_by_arm):
+        status = "Baseline coverage is incomplete"
+    baseline = StudyBaseline((cutoff - pd.Timedelta(days=1)).date(), means, status)
+    write_charts(out, rows, tuple(model_by_arm.values()), study_baseline=baseline)
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Analyse the validated Codex drift series.")
+    parser.add_argument("--write", action="store_true", help="Write local daily charts and aggregate CSV")
+    args = parser.parse_args()
     root = STUDY_HOME.parent / "study" / study_id()
     if not (root / "panel").exists():
         raise SystemExit("The study has no frozen panel yet.")
-    print(json.dumps(report(root, pd.Timestamp(datetime.now(timezone.utc))), allow_nan=False, indent=2))
+    result = report(root, pd.Timestamp(datetime.now(timezone.utc)))
+    if args.write:
+        write_formal_report(root, result)
+    print(json.dumps(result, allow_nan=False, indent=2))

@@ -5,10 +5,37 @@ import os
 
 from .benchmarks import calibrate
 from .benchmarks.data import LOADERS
-from .codex_calibrate import restore_aime_2026, study_id
+from .codex_calibrate import METER_SIGNAL, restore_aime_2026, study_id
 from .codex_panel import freeze_panel
 from .design import calibrated_candidates, daily_sensitivity
 from .providers.codex.instrument import STUDY_HOME
+
+
+def measurement_summary(root):
+    path = root / "batches.jsonl"
+    if not path.exists():
+        return None
+    batches = [json.loads(line) for line in path.read_text().splitlines()]
+    measured = [batch for batch in batches if batch.get("mode") == "measurement"]
+    if not measured:
+        return None
+    start = measured[0]["weekly_before"]
+    reset = measured[0]["weekly_reset"]
+    same_window = [batch for batch in measured if batch["weekly_reset"] == reset]
+    observed = [batch["weekly_after"] for batch in same_window if batch["weekly_after"] is not None]
+    attempts = sum(batch["attempts"] for batch in same_window)
+    scored = sum(batch["scored"] for batch in same_window)
+    points = max([start, *observed]) - start
+    checkpoint = root / "measurement.json"
+    if checkpoint.exists():
+        submitted = json.loads(checkpoint.read_text())["attempts"]
+    else:
+        submitted = attempts
+    return {
+        "scored": scored, "attempts_logged": attempts, "attempts_checkpointed": submitted,
+        "weekly_before": start, "weekly_max_after": start + points, "observed_points": points,
+        "calls_per_observed_point": attempts / points if points >= METER_SIGNAL and attempts == submitted else None,
+    }
 
 
 def calibration_design(pool, screen, confirmation):
@@ -63,7 +90,7 @@ def main():
             parser.exit(1, f"Could not freeze the panel: {error}\n")
     else:
         design = calibration_design(pool, calibrate.history(root / "screen"), calibrate.history(root / "confirmation"))
-    print(json.dumps({"study_id": identifier, **design}, indent=2))
+    print(json.dumps({"study_id": identifier, **design, "quota_measurement": measurement_summary(root)}, indent=2))
 
 
 if __name__ == "__main__":

@@ -22,6 +22,13 @@ class DailyEstimate:
     se: float
 
 
+@dataclass(frozen=True)
+class StudyBaseline:
+    end: date
+    means: dict[str, float]
+    status: str
+
+
 def daily_scores(root, models):
     days = sorted(date.fromisoformat(path.name) for path in root.iterdir() if path.is_dir())
     if not days:
@@ -44,7 +51,7 @@ def daily_scores(root, models):
     return rows
 
 
-def render(rows, models, theme="light"):
+def render(rows, models, theme="light", *, study_baseline=None):
     colours = THEMES[theme]
     width, height = 960, 380
     left, right, top, bottom = 64, width - 28, 92, height - 52
@@ -53,12 +60,16 @@ def render(rows, models, theme="light"):
         [(day, 100 * scores[model].mean, 100 * scores[model].se) for day, scores in rows if model in scores]
         for model in models
     ]
-    collecting = any(len(points) < BASELINE_DAYS for points in series)
-    baseline_end = max(
-        points[BASELINE_DAYS - 1][0] if len(points) >= BASELINE_DAYS
-        else last + timedelta(days=BASELINE_DAYS - len(points))
-        for points in series
-    )
+    if study_baseline:
+        baseline_end = study_baseline.end
+        subtitle = "Frozen Astra panel and shared Sol subset, with approximate 95% intervals."
+    else:
+        baseline_end = max(
+            points[BASELINE_DAYS - 1][0] if len(points) >= BASELINE_DAYS
+            else last + timedelta(days=BASELINE_DAYS - len(points))
+            for points in series
+        )
+        subtitle = "Fixed 10-question compute panel with approximate 95% intervals. Dashed lines show baseline means."
     end = max(start + MIN_SPAN, max(last, baseline_end) + timedelta(days=4))
     values = [score for points in series for _, score, _ in points]
     for points in series:
@@ -85,7 +96,7 @@ def render(rows, models, theme="light"):
         f'<text x="{left}" y="38" fill="{colours["ink"]}" font-size="20" font-weight="600">'
         'GPT-6.2 Astra and Sol vs. their own baselines</text>',
         f'<text x="{left}" y="62" fill="{colours["ink2"]}" font-size="13">'
-        'Fixed 10-question compute panel with approximate 95% intervals. Dashed lines show baseline means.</text>',
+        f'{subtitle}</text>',
     ]
     for percent in range(low, high + 1, 10):
         level = y(percent)
@@ -104,10 +115,15 @@ def render(rows, models, theme="light"):
     latest_labels = []
     baseline_labels = []
     progress = []
-    for name, points, colour in zip(("Astra", "Sol"), series, (colours["series"], colours["series2"]), strict=True):
+    for model, name, points, colour in zip(models, ("Astra", "Sol"), series,
+                                          (colours["series"], colours["series2"]), strict=True):
         progress.append(f"{name} {min(len(points), BASELINE_DAYS)}/{BASELINE_DAYS}")
-        if len(points) >= BASELINE_DAYS:
+        baseline = None
+        if study_baseline and model in study_baseline.means:
+            baseline = 100 * study_baseline.means[model]
+        elif not study_baseline and len(points) >= BASELINE_DAYS:
             baseline = mean(score for _, score, _ in points[:BASELINE_DAYS])
+        if baseline is not None:
             level = y(baseline)
             parts.append(f'<line x1="{left}" y1="{level:.1f}" x2="{right}" y2="{level:.1f}" stroke="{colour}" '
                          'stroke-width="1.5" stroke-dasharray="6 5"/>')
@@ -127,10 +143,14 @@ def render(rows, models, theme="light"):
             parts.append(f'<text x="{label_x:.1f}" y="{line_y:.1f}" text-anchor="{anchor}" '
                          f'fill="{colour}" font-size="13" font-weight="600">{label}</text>')
             min_y = line_y + 17
-    if collecting:
+    status = (study_baseline.status if study_baseline else
+              f'Collecting the baseline · {" · ".join(progress)}' if any(
+                  len(points) < BASELINE_DAYS for points in series
+              ) else "")
+    if status:
         midpoint = (x(baseline_end) + right) / 2
         parts.append(f'<text x="{midpoint:.1f}" y="{(top + bottom) / 2:.1f}" text-anchor="middle" '
-                     f'fill="{colours["muted"]}" font-size="14">Collecting the baseline · {" · ".join(progress)}</text>')
+                     f'fill="{colours["muted"]}" font-size="14">{status}</text>')
     parts.append(f'<text x="{right}" y="{height - 12}" text-anchor="end" '
                  f'fill="{colours["muted"]}" font-size="11">Data through {last:%Y-%m-%d} UTC</text>')
     parts.append("</svg>")
@@ -146,7 +166,11 @@ def write_report(root, models):
         writer.writerows((day, *(scores[model].mean if model in scores else "" for model in models))
                          for day, scores in rows)
     Path(file.name).replace(root / "daily.csv")
+    write_charts(root, rows, models)
+
+
+def write_charts(root, rows, models, *, study_baseline=None):
     for theme, name in (("light", "daily.svg"), ("dark", "daily-dark.svg")):
         with NamedTemporaryFile(mode="w", encoding="utf-8", dir=root, delete=False) as file:
-            file.write(render(rows, models, theme))
+            file.write(render(rows, models, theme, study_baseline=study_baseline))
         Path(file.name).replace(root / name)
