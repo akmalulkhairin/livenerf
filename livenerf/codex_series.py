@@ -31,10 +31,10 @@ def ready_panel(root, pool):
 
 def pending_samples(directory, panel):
     return [(arm, item) for arm, key in (("measured", "panel"), ("control", "control"))
-            for item in panel[key] if not (directory / arm / item).exists()]
+            for item in panel[key] if not any((directory / arm / item).glob("*.eval"))]
 
 
-def run_day(root, day, panel, digest, families, *, comparison_cap=None):
+def run_day(root, day, panel, digest, families, *, comparison_cap=None, task_panel="all"):
     directory = root / "series" / day
     pending = pending_samples(directory, panel)
     if not pending:
@@ -65,17 +65,17 @@ def run_day(root, day, panel, digest, families, *, comparison_cap=None):
         reserve(budget, asyncio.run(read_limits()), 0, **budget_options)
         family = families[item]
         if family not in task_by_family:
-            task_by_family[family] = getattr(tasks, family)(panel="daily" if comparison_cap is not None else "all")
+            task_by_family[family] = getattr(tasks, family)(panel=task_panel)
         model, effort = ARMS["high" if arm == "measured" else "control"]
         if datetime.now(timezone.utc).date().isoformat() != day:
             raise BudgetStop("The UTC day ended before the panel finished")
         attempt = directory / arm / item
-        attempt.mkdir(parents=True)
+        attempt.mkdir(parents=True, exist_ok=True)
         logs = eval(
             task_by_family[family], model=f"codex-study/{model}", effort=effort,
             log_dir=str(attempt), sample_id=[item], max_connections=1, max_retries=0,
             metadata={"study_id": root.name, "panel_sha256": digest, "arm": arm,
-                      "harness_sha": f"codex-study+{root.name}", "cli_version": CLI_VERSION},
+                      "harness_sha": f"codex-study+{root.name}", "cli_version": CLI_VERSION, "utc_day": day},
             tags=["livenerf-codex", "comparison" if comparison_cap is not None else "series", arm], display="none",
         )
         if comparison_cap is not None:

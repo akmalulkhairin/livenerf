@@ -15,6 +15,8 @@ def freeze_panel(root, design):
         "samples_per_item_per_day": design["samples_per_item_per_day"],
         "predicted_sensitivity": design["predicted_sensitivity"],
     }
+    if "upstream_revision" in design:
+        manifest["upstream_revision"] = design["upstream_revision"]
     data = (json.dumps(manifest, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
     digest = hashlib.sha256(data).hexdigest()
     destination = root / "panel"

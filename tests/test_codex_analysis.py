@@ -1,7 +1,9 @@
 import math
 
 import pandas as pd
+import pytest
 
+from livenerf import codex_analysis
 from livenerf.codex_analysis import attribute, window_decisions, write_formal_report
 from livenerf.providers.codex.instrument import CLI_VERSION
 
@@ -56,3 +58,35 @@ def test_formal_chart_keeps_the_utc_baseline_and_missing_control(tmp_path):
     assert chart.count("<circle") == 2
     assert "Baseline coverage is incomplete" in chart
     assert "2026-11-19,gpt-6.2-sol,,,0,0,2" in (report / "daily.csv").read_text()
+
+
+def test_upstream_drift_rejects_missing_cli_in_one_of_several_records(tmp_path, monkeypatch):
+    start = pd.Timestamp("2026-11-18", tz="UTC")
+    (tmp_path / "series" / "2026-11-18").mkdir(parents=True)
+    panel = {"upstream_revision": "upstream", "panel": ["a", "b"], "control": ["a", "b"],
+             "item_hashes": {"a": "hash-a", "b": "hash-b"}}
+    rows = [
+        {"arm": "measured", "study_id": tmp_path.name, "panel_sha256": "digest", "effort": "high",
+         "model": "codex-study/gpt-6.2-astra", "id": item, "item_hash": f"hash-{item}",
+         "harness_sha": f"codex-study+{tmp_path.name}", "cli_version": cli, "score": 1, "error": None,
+         "run_created": start, "run_status": "success", "scheduled_utc_day": "2026-11-18",
+         "attempt_path": ("2026-11-18", "measured", item)}
+        for item, cli in (("a", CLI_VERSION), ("b", None))
+    ]
+    monkeypatch.setattr(codex_analysis, "read_panel", lambda root: (panel, "digest"))
+    monkeypatch.setattr(codex_analysis, "load_samples", lambda directory: pd.DataFrame(rows))
+    with pytest.raises(ValueError, match="lacks the pinned CLI"):
+        codex_analysis.report(tmp_path, start)
+
+
+def test_attempt_starting_after_midnight_is_an_error_on_its_scheduled_day():
+    rows = pd.DataFrame([
+        {"id": "a", "scheduled_utc_day": day, "attempt_path": (day, "control", "a"),
+         "run_created": pd.Timestamp("2026-11-19 00:01:00", tz="UTC"), "run_status": "success",
+         "error": None, "score": 1}
+        for day in ("2026-11-18", "2026-11-19")
+    ])
+    checked = codex_analysis.scheduled_records(rows, ["2026-11-18", "2026-11-19"], "control")
+    assert list(checked["run_created"].dt.strftime("%Y-%m-%d")) == ["2026-11-18", "2026-11-19"]
+    assert checked["error"].notna().tolist() == [True, False]
+    assert checked["score"].isna().tolist() == [True, False]

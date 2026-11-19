@@ -31,21 +31,25 @@ def git(directory, *args):
     return subprocess.run(["git", *args], cwd=directory, check=True, timeout=60)
 
 
-def study_readme(original, study, *, design, daily):
+def study_readme(original, study, *, design, daily, validation=False, report=False):
     section = f"## Drift study {study}\n"
     path = f"drift/{study}"
     links = ""
     if design and f"{path}/design.json" not in original:
         links += f"\n[Frozen panel summary and predicted sensitivity]({path}/design.json)\n"
+    if validation and f"{path}/validation.json" not in original:
+        links += f"\n[Instrument validation and measured sensitivity]({path}/validation.json)\n"
     if daily and f"{path}/daily.csv" not in original:
         links += f"""
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="{path}/daily-dark.svg">
-  <img alt="Daily scores and baseline progress for the calibrated drift study" src="{path}/daily.svg">
+  <img alt="Daily scores and baseline progress for the drift study" src="{path}/daily.svg">
 </picture>
 
 [Daily scores CSV]({path}/daily.csv)
 """
+    if report and f"{path}/study.json" not in original:
+        links += f"\n[Coverage, baseline sensitivity and drift decisions]({path}/study.json)\n"
     if not links:
         return original
     before, heading, after = original.partition(section)
@@ -54,11 +58,13 @@ def study_readme(original, study, *, design, daily):
     return original.rstrip() + "\n\n" + section + links
 
 
-def publish(source, *, study=None, design=None, comparison=None):
+def publish(source, *, study=None, design=None, comparison=None, validation=None):
     if study is not None and not re.fullmatch(r"[a-f0-9]{16}", study):
         raise ValueError("A drift publication requires a verified study ID")
-    if source is None and (study is None or design is None):
-        raise ValueError("A design publication requires a verified study ID and design")
+    if source is None and (study is None or (design is None and validation is None)):
+        raise ValueError("A design publication requires a verified study ID and design or validation")
+    if validation is not None and study is None:
+        raise ValueError("Validation publication requires a verified study ID")
     if comparison is not None and (study is not None or design is not None or not re.fullmatch(r"[a-f0-9]{16}", comparison)):
         raise ValueError("A comparison publication requires a verified comparison ID")
     required = (*REPORTS, "comparison.json") if comparison else REPORTS
@@ -75,18 +81,22 @@ def publish(source, *, study=None, design=None, comparison=None):
             reports = checkout / "comparison" / comparison
         reports.mkdir(parents=True, exist_ok=True)
         names = list(required) if source is not None else []
+        if study and source is not None and (source / "study.json").is_file():
+            names.append("study.json")
         for name in names:
             copyfile(source / name, reports / name)
-        if design is not None:
-            path = reports / "design.json"
-            if path.exists() and path.read_bytes() != design:
-                raise ValueError("The published design differs from the frozen panel")
-            path.write_bytes(design)
-            names.append(path.name)
+        for name, data in (("design.json", design), ("validation.json", validation)):
+            if data is not None:
+                path = reports / name
+                if path.exists() and path.read_bytes() != data:
+                    raise ValueError(f"The published {path.stem} differs from the frozen panel")
+                path.write_bytes(data)
+                names.append(name)
         readme = checkout / "README.md"
         original = readme.read_text()
         if study:
-            updated = study_readme(original, study, design=design is not None, daily=source is not None)
+            updated = study_readme(original, study, design=design is not None, daily=source is not None,
+                                   validation=validation is not None, report="study.json" in names)
         elif comparison:
             path = f"comparison/{comparison}"
             updated = original
@@ -126,7 +136,7 @@ def publish(source, *, study=None, design=None, comparison=None):
             "push", "origin", f"{BRANCH}:refs/heads/{BRANCH}")
 
 
-def publish_design(root):
+def publish_design(root, *, validation=None):
     panel, digest = read_panel(root)
     sensitivity = panel["predicted_sensitivity"]
     summary = {
@@ -137,8 +147,11 @@ def publish_design(root):
         "samples_per_item_per_day": panel["samples_per_item_per_day"],
         "predicted_sensitivity": {key: sensitivity[key] for key in ("se_points", "mde_points")},
     }
+    if "upstream_revision" in panel:
+        summary["upstream_revision"] = panel["upstream_revision"]
+        summary["predicted_sensitivity"] = sensitivity
     design = (json.dumps(summary, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
-    publish(None, study=root.name, design=design)
+    publish(None, study=root.name, design=design, validation=validation)
 
 
 def publish_study(root, now):

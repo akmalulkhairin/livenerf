@@ -39,6 +39,7 @@ calibration is paused and the ten-question monitor is archived.
 
 - [Shared-panel scores CSV](https://github.com/akmalulkhairin/livenerf/blob/codex-results/comparison/8ad04dd62da4845f/daily.csv)
 - [Run settings and dated Claude reference scores](https://github.com/akmalulkhairin/livenerf/blob/codex-results/comparison/8ad04dd62da4845f/comparison.json)
+- [Formal drift study designs and results](https://github.com/akmalulkhairin/livenerf/tree/codex-results/drift)
 - [Archived ten-question monitor chart and CSV](https://github.com/akmalulkhairin/livenerf/tree/codex-results)
 - [Pilot CSV](https://github.com/akmalulkhairin/livenerf/blob/codex-results/pilot.csv)
 
@@ -48,12 +49,13 @@ upstream's original run settings.
 
 ## How it works
 
-- **Benchmark on the workstation.** The comparison uses a dedicated Codex
-  profile and checks account usage before every sample. A comparison needs
-  156 scored answers, 78 for each model.
+- **Benchmark on the workstation.** The daily timer advances validation and
+  then collects 78 answers per model each UTC day. The runner uses a dedicated
+  Codex profile and checks account usage before every sample.
 - **Reports from saved logs.** The comparison publishes a CSV, run settings
-  and light and dark SVG charts once both models have all 78 scores. The
-  publisher pushes only aggregates. Raw captures and account sign-in stay local.
+  and light and dark SVG charts once both models have all 78 scores. The drift
+  study also publishes validation, baseline coverage and window decisions.
+  Raw captures and account sign-in stay local.
 - **Tests on GitHub.** [CI](.github/workflows/ci.yml) checks the runner, provider,
   scoring and reporting, and verifies that the public panel can be regenerated.
   It uses no Codex login or quota.
@@ -65,6 +67,10 @@ panel, graders and prompts. Pass `--run` to collect the current UTC day's
 comparison at high effort. Pass `--publish` to publish a complete pair of
 results. The published summary includes the original dates and settings of
 the Claude reference scores.
+
+Run `uv run --locked python -m livenerf.codex_upstream_study` to verify the
+formal panel and see validation progress. Its separate logs track fresh
+validation and baseline samples under the [drift protocol](docs/CODEX_PROTOCOL.md).
 
 The benchmark requires Python 3.11+, `uv` and the pinned Codex CLI.
 On Linux, the systemd units are under [scripts/systemd](scripts/systemd).

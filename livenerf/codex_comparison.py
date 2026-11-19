@@ -154,7 +154,7 @@ def main():
             with (STUDY_HOME.parent / ".lock").open("a") as lock:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 if args.run:
-                    run_day(root, day, panel, ITEM_DIGEST, families, comparison_cap=args.weekly_points)
+                    run_day(root, day, panel, ITEM_DIGEST, families, comparison_cap=args.weekly_points, task_panel="daily")
                 else:
                     with TemporaryDirectory(prefix="livenerf-comparison-") as directory:
                         output = Path(directory)

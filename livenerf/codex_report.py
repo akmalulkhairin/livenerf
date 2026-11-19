@@ -27,6 +27,7 @@ class StudyBaseline:
     end: date
     means: dict[str, float]
     status: str
+    upstream_panel: bool = False
 
 
 def daily_scores(root, models):
@@ -71,7 +72,9 @@ def render(rows, models, theme="light", *, study_baseline=None, comparison=False
         subtitle = "Upstream's 78 questions and graders, with approximate 95% intervals."
     elif study_baseline:
         baseline_end = study_baseline.end
-        subtitle = "Frozen Astra panel and shared Sol subset, with approximate 95% intervals."
+        subtitle = ("Both models on LiveNerf's 78 questions, with approximate 95% intervals."
+                    if study_baseline.upstream_panel else
+                    "Frozen Astra panel and shared Sol subset, with approximate 95% intervals.")
     else:
         baseline_end = max(
             points[BASELINE_DAYS - 1][0] if len(points) >= BASELINE_DAYS

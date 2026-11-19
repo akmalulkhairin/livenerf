@@ -70,12 +70,21 @@ def test_publication_keeps_previous_results_and_excludes_raw_logs(tmp_path, monk
     ).strip()
     assert revision_count == "3"
 
+    receipt = b'{"passed": true}\n'
+    codex_publish.publish(None, study=study, validation=receipt)
+    validation = f"drift/{study}/validation.json"
+    assert subprocess.check_output(
+        ["git", "show", f"{codex_publish.BRANCH}:{validation}"], cwd=remote
+    ) == receipt
+    with pytest.raises(ValueError, match="published validation differs"):
+        codex_publish.publish(None, study=study, validation=b'{"passed": false}\n')
+
     (source / "comparison.json").write_text("Aggregate comparison fixture\n")
     codex_publish.publish(source, comparison=study)
     after_comparison = subprocess.check_output(
         ["git", "ls-tree", "-r", "--name-only", codex_publish.BRANCH], cwd=remote, text=True
     ).splitlines()
-    assert set(after_comparison) == set(listing) | {
+    assert set(after_comparison) == set(listing) | {validation} | {
         f"comparison/{study}/{name}" for name in (*codex_publish.REPORTS, "comparison.json")
     }
 

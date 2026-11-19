@@ -1,90 +1,79 @@
-# LiveNerf for Codex drift study protocol
+# LiveNerf for Codex drift study
 
-This protocol records the Codex adaptation of
-[LiveNerf's study design](../PREREGISTRATION.md). It was written during
-screening, before confirmation, instrument validation or baseline collection.
-The public ten-question monitor continues as a separate series.
+The study uses [LiveNerf's frozen panel](adr/0002-use-the-upstream-frozen-panel.md)
+and its [baseline and decision procedure](../PREREGISTRATION.md). Astra is the
+primary model. Sol is the control and answers all 78 questions alongside
+Astra. Both use high reasoning effort in the daily series.
 
-## Models and instrument
+The [Codex instrument](../livenerf/providers/codex/instrument.py) uses a pinned
+CLI and a dedicated ChatGPT sign-in. Each question runs in an isolated,
+read-only thread. The instrument rejects observable reroutes, retries,
+moderations and turns that fail its result checks. The study measures the
+observed service. Some provider-side routing and model identity details are
+unavailable through Codex.
 
-Astra is the primary model. Sol is the candidate control and runs on the
-GPQA questions from Astra's panel. The study measures GPT-6.2 as served
-through the pinned Codex CLI with a dedicated ChatGPT sign-in.
+## Before the baseline
 
-The [instrument](../livenerf/providers/codex/instrument.py) requests an
-isolated, read-only thread at an explicit reasoning effort. It excludes
-observable reroutes, retries, moderations and turns that fail the result
-checks. Codex does not expose all provider-side routing or model identity
-details. The study can identify a change in the observed service.
+1. Verify the upstream revision, question contents, prompt and graders.
+   Publish the panel digest and predicted sensitivity. The prediction assumes
+   independent samples and a 50% pass probability per question, which gives
+   the largest binary-score variance in the planning calculation. Both models
+   use the same panel, so they have the same predicted sensitivity under
+   those assumptions.
+2. Collect four fresh scores for every question in each of four arms. Run
+   Astra at high, medium and low effort and Sol at high effort. Use the
+   upstream per-pair error stop. The split-replicate A/A check tests whether
+   two sets of Astra high-effort runs give consistent results. The low-effort
+   comparison checks that its 99% interval for the change in output tokens
+   excludes zero.
+3. Publish the validation results before baseline collection. The baseline
+   requires four graded scores for each question and arm and a pass on both
+   checks. Report the accuracy and output-token differences for each effort
+   and for the Astra-to-Sol model swap, with their 99% confidence intervals.
+   These differences show what the current setup can detect in validation.
 
-## Screening, confirmation and validation
-
-The source pool uses LiveNerf's pinned GPQA Diamond, MMLU-Pro, competition
-math and AIME datasets. Astra runs at high reasoning effort for screening
-and confirmation.
-
-1. Screen each question with four scored samples. Stop asking a question
-   after two execution errors. A question is eligible when it has both
-   a pass and a fail and has no recorded classifier event.
-2. Collect eight fresh confirmation scores for each eligible question.
-   Use those scores to estimate its pass rate and exclude questions with
-   a recorded classifier event during confirmation.
-3. Freeze the selected item IDs, content hashes and Sol subset. Publish the
-   panel digest, arm sizes and predicted minimum detectable effect before
-   starting the drift baseline. Keep the question IDs and logs local.
-4. Validate the instrument with four fresh samples per question and arm,
-   subject to upstream's per-pair error stop. Astra runs at high, medium
-   and low effort. Sol runs at high effort on the shared subset. Apply
-   upstream's split-replicate A/A check and the low-versus-high output
-   token comparison. Report whether the model swap is distinguishable.
-   Settle the control choice before starting the baseline if validation
-   fails.
-
-Screening, confirmation and validation samples stay outside the baseline
-and the drift analysis.
+The initial comparison, the archived Astra calibration and the validation
+runs have separate logs and contribute zero samples to the drift baseline.
 
 ## Daily series and decision
 
-Attempt one sample per panel question and arm on each UTC day. The first
-ten calendar days form the baseline. Subsequent decision windows are
-consecutive, non-overlapping ten-day periods. Log missing attempts and
-errors so an incomplete window cannot make two separated changes appear
-consecutive.
+The workstation timer runs at 00:20 UTC (08:20 Malaysia time). The first UTC
+day admitted by the budget starts the ten-calendar-day baseline. Attempt one
+sample per question and model on each UTC day. A run interrupted after
+admission keeps that date in the calendar. Later decision windows are
+consecutive ten-day periods. The report preserves missing dates and errors.
 
-For each closed window, compare each question's mean score with its own
-baseline mean. Use the item-clustered standard error. A primary shift must
-reach at least three percentage points in the same direction in two
-consecutive windows, with both paired 99% confidence intervals excluding
-zero. The CLI and study hash must match the baseline. Missing and errored
-samples must together account for fewer than 5% of scheduled samples.
+For each closed window, compare each question's mean score with its baseline
+mean and use the item-clustered standard error. A primary shift must reach at
+least three percentage points in the same direction in two consecutive
+windows, with both paired 99% confidence intervals excluding zero. The CLI
+and study identity must match the baseline. Missing and errored samples
+must account for fewer than 5% of scheduled samples in each relevant window.
 
-If Sol also meets the rule in the same direction, report a shared shift
-and leave its cause open. If Sol's comparison is incomplete, leave
-attribution open. The public daily 95% intervals describe daily scores.
-The paired 99% intervals determine the drift verdict.
+A matching change in Sol gives a shared shift with no assigned cause. An
+incomplete Sol comparison leaves attribution open. The 95% intervals on
+the chart describe daily scores. The paired 99% intervals govern the drift
+decision. The results include measured baseline sensitivity once the
+baseline closes with sufficient coverage.
 
-## Quota and readiness
+## Quota and operation
 
-The scheduled study has a weekly allowance of 20 percentage points and an
-account-wide stop at 50% in any reported window. It counts ambiguous usage
-towards the study allowance and leaves headroom for meter lag.
+Scheduled validation and daily runs share a 20-point weekly study allowance.
+The account-wide stop is 50% in any reported window. The runner checks the
+live account meter before each sample. Each validation batch of up to 156
+attempts or each admitted daily run reserves two points in the study ledger.
+The ledger also counts observed account usage above its start value and keeps
+one point of headroom. Seven daily reservations and headroom leave five
+points for observed meter movement. This is a reservation calculation. Daily
+run costs depend on measured usage across a full week.
 
-A one-off GPQA screening measurement scored 64 samples while displayed
-weekly usage rose by one point. Later manual screening completed two
-consecutive 64-sample batches in each of GPQA and MMLU-Pro, with no more than
-a one-point rise across either pair. These runs support scheduling up to 128
-questions from one of those families per reservation. They leave the exact
-cost conversion and the cost of a full Astra and Sol panel open.
+`uv run --locked python -m livenerf.codex_upstream_study` verifies the panel
+and shows validation progress. Pass `--prepare` to freeze and publish the
+design without submitting a benchmark question. The
+[workstation timer](../scripts/systemd/livenerf-codex-drift.timer) invokes the
+runner to advance validation or collect the current UTC day.
 
-The local calibration log records attempts and scores by benchmark family,
-alongside the account meter at the start and end of each batch. Use these
-records to compare batches from the same family. The meter is account-wide
-and can register usage after a batch has finished.
-
-The runner reserves two points per daily run and keeps one point of weekly
-headroom. Seven daily reservations and headroom account for 15 points,
-leaving five points for observed meter movement in the same window.
-The series preflight checks reservation capacity. Before the first baseline
-day, the runner checks that the current allowance can cover the planned
-daily reservations through the next quota reset. The live meter can still
-pause collection if usage exceeds the available allowance.
+The [original decision record](adr/0001-use-livenerf-protocol-for-codex-drift-study.md)
+describes the earlier Astra-specific calibration. The
+[panel decision](adr/0002-use-the-upstream-frozen-panel.md) records the switch
+to the upstream questions and dates the first comparison separately.

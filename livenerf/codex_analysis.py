@@ -83,6 +83,22 @@ def attribute(measured, control):
     return results
 
 
+def scheduled_records(records, dates, arm):
+    day = records["scheduled_utc_day"]
+    if not day.isin(dates).all() or any(
+        path != (scheduled, arm, item)
+        for path, scheduled, item in zip(records["attempt_path"], day, records["id"], strict=True)
+    ):
+        raise ValueError("A series log is outside its scheduled day, arm or item directory")
+    wrong_day = records["run_created"].dt.strftime("%Y-%m-%d").ne(day)
+    failed = wrong_day | records["run_status"].ne("success") | (records["score"].isna() & records["error"].isna())
+    return records.assign(
+        run_created=records["run_created"].mask(wrong_day, pd.to_datetime(day, utc=True)),
+        error=records["error"].mask(failed, "Attempt opened outside its UTC day or produced no complete score"),
+        score=records["score"].mask(failed),
+    )
+
+
 def report(root, now):
     panel, digest = read_panel(root)
     directory = root / "series"
@@ -111,6 +127,15 @@ def report(root, now):
                 or not records["item_hash"].eq(records["id"].map(panel["item_hashes"])).all()
             ):
                 raise ValueError("A series record does not match its frozen panel and model")
+            if "upstream_revision" in panel:
+                records = scheduled_records(records, dates, arm)
+                if (
+                    not records["effort"].eq(ARMS[model_key][1]).all()
+                    or not records["cli_version"].eq(CLI_VERSION).all()
+                    or not records["harness_sha"].eq(f"codex-study+{root.name}").all()
+                    or not records.loc[records["error"].isna(), "score"].isin([0, 1]).all()
+                ):
+                    raise ValueError("A series record lacks the pinned CLI, effort, harness or binary score")
             key = records.assign(day=records["run_created"].dt.floor("D"))[["day", "id"]]
             if key.duplicated().any() or (key["day"] < start).any():
                 raise ValueError("Series records contain duplicate attempts or precede the study")
@@ -128,6 +153,7 @@ def report(root, now):
 
     return {
         "stage": "series", "panel_sha256": digest, "series_started": start.isoformat(),
+        "upstream_revision": panel.get("upstream_revision"),
         "baseline_ends": cutoff.isoformat(), "panel_sizes": panel_sizes, "daily": daily,
         "baseline_sensitivity": sensitivity, "windows": windows,
         "decisions": attribute(windows["measured"], windows["control"]),
@@ -171,8 +197,9 @@ def write_formal_report(root, result):
         status = f"Collecting the UTC baseline · closes {cutoff:%b %d}"
     elif len(means) != len(model_by_arm):
         status = "Baseline coverage is incomplete"
-    baseline = StudyBaseline((cutoff - pd.Timedelta(days=1)).date(), means, status)
+    baseline = StudyBaseline((cutoff - pd.Timedelta(days=1)).date(), means, status, bool(result.get("upstream_revision")))
     write_charts(out, rows, tuple(model_by_arm.values()), study_baseline=baseline)
+    (out / "study.json").write_text(json.dumps(result, allow_nan=False, indent=2) + "\n")
     return out
 
 

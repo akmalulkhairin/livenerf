@@ -15,7 +15,8 @@ from .benchmarks.data import LOADERS
 from .codex_budget import BudgetStop, reserve
 from .codex_calibrate import PREFLIGHT_RESERVATION, read_limits, restore_aime_2026, study_id
 from .codex_panel import read_panel, verified_items
-from .providers.codex.instrument import MODEL, STUDY_HOME, InstrumentError, check_version
+from .design import Z_ALPHA
+from .providers.codex.instrument import CLI_VERSION, MODEL, STUDY_HOME, InstrumentError, check_version
 from .validate import MAX_ERRORS, REPS, _paired, _paired_tokens
 
 ARMS = {
@@ -41,18 +42,33 @@ def validation_rows(root, panel, digest):
         log = read_eval_log(info)
         metadata = log.eval.metadata or {}
         arm = metadata.get("arm")
+        cli = metadata.get("cli_version")
+        upstream = "upstream_revision" in panel
         if (metadata.get("study_id") != root.name or metadata.get("panel_sha256") != digest
-                or arm not in ARMS or log.eval.model != f"codex-study/{ARMS[arm][0]}"):
+                or arm not in ARMS or log.eval.model != f"codex-study/{ARMS[arm][0]}"
+                or log.eval.model_generate_config.effort != ARMS[arm][1]
+                or (cli != CLI_VERSION and (upstream or cli is not None))):
             raise ValueError("A validation log does not match the frozen study and arm")
+        if len(log.samples or ()) > 1:
+            raise ValueError("A validation attempt must contain at most one sample")
+        requested = metadata.get("item_id")
+        if upstream and (requested, arm) not in pairs:
+            raise ValueError("A validation attempt names a question outside its arm")
+        if not log.samples and requested is not None:
+            rows.append({"id": requested, "effort": arm, "created": log.eval.created, "error": True})
         for sample in log.samples or ():
             if ((sample.id, arm) not in pairs
+                    or (requested is not None and sample.id != requested)
                     or sample.metadata.get("item_hash") != panel["item_hashes"][sample.id]):
                 raise ValueError("A validation sample does not match the frozen question")
             usage = next(iter(sample.model_usage.values()), None)
             score = next(iter(sample.scores.values()), None) if sample.scores else None
+            if score is not None and score.value not in (0, 1):
+                raise ValueError("An upstream validation score must be zero or one")
             rows.append({
                 "id": sample.id, "effort": arm, "cluster": sample.metadata.get("cluster") or sample.id,
-                "created": log.eval.created, "error": bool(sample.error or score is None or usage is None),
+                "created": log.eval.created,
+                "error": bool(log.status != "success" or sample.error or score is None or usage is None),
                 "score": float(score.value) if score else None,
                 "output_tokens": usage.output_tokens if usage else None,
             })
@@ -80,10 +96,28 @@ def validation_result(panel, rows):
     arms = {arm: good[good["effort"] == arm] for arm in ARMS}
     high = arms["high"].sort_values("created").assign(rep=lambda df: df.groupby("id").cumcount())
     aa = _paired(high[high["rep"] % 2 == 0], high[high["rep"] % 2 == 1])
-    lo, hi = _paired_tokens(high, arms["low"])["ci99_pct"]
+    low_usage = _paired_tokens(high, arms["low"])
+    lo, hi = low_usage["ci99_pct"]
     swap_accuracy = _paired(high, arms["control"])
     swap_usage = _paired_tokens(high, arms["control"])
     control_covered = swap_accuracy["items"] >= 2
+    if "upstream_revision" in panel:
+        required = required_pairs(panel)
+        counts = Counter((row["id"], row["effort"]) for row in scored)
+        report["short_pairs"] = sum(counts[pair] != REPS for pair in required)
+        report["passed_coverage"] = report["short_pairs"] == 0
+        control_covered = report["passed_coverage"] and swap_accuracy["items"] == len(panel["control"])
+        checks = {}
+        for arm, accuracy, usage in (
+            ("medium", _paired(high, arms["medium"]), _paired_tokens(high, arms["medium"])),
+            ("low", _paired(high, arms["low"]), low_usage),
+            ("control", swap_accuracy, swap_usage),
+        ):
+            delta, se = accuracy["delta_points"], accuracy["se_points"]
+            checks[arm] = {"accuracy": {**accuracy, "ci99_points": [delta - Z_ALPHA * se, delta + Z_ALPHA * se]},
+                           "output_usage": usage}
+        report["paired_checks"] = checks
+        report["aa_accuracy"] = aa
     report.update(
         aa_consistent=bool(abs(aa["z"]) < 1.96),
         lower_effort_token_ci99=[value if math.isfinite(value) else None for value in (lo, hi)],
@@ -94,7 +128,7 @@ def validation_result(panel, rows):
     return report
 
 
-def run_batch(root, panel, digest, families, limit):
+def run_batch(root, panel, digest, families, limit, *, task_panel="all"):
     pending = pending_pairs(panel, validation_rows(root, panel, digest))[:limit]
     if not pending:
         return
@@ -106,12 +140,13 @@ def run_batch(root, panel, digest, families, limit):
         reserve(budget, asyncio.run(read_limits()), 0)
         family = families[item]
         if family not in task_by_family:
-            task_by_family[family] = getattr(tasks, family)(panel="all")
+            task_by_family[family] = getattr(tasks, family)(panel=task_panel)
         model, effort = ARMS[arm]
         eval(
             task_by_family[family], model=f"codex-study/{model}", effort=effort,
             log_dir=str(root / "validation"), sample_id=[item], max_connections=1, max_retries=0,
-            metadata={"study_id": root.name, "panel_sha256": digest, "arm": arm},
+            metadata={"study_id": root.name, "panel_sha256": digest, "arm": arm, "item_id": item,
+                      "cli_version": CLI_VERSION},
             tags=["livenerf-codex", "validation", arm], display="none",
         )
 

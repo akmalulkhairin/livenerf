@@ -61,9 +61,13 @@ def load_samples(log_dir: str) -> pd.DataFrame:
             out_meta = (s.output.metadata or {}) if s.output else {}
             rows.append({
                 "run_created": created,
+                "run_status": log.status,
+                "scheduled_utc_day": (log.eval.metadata or {}).get("utc_day"),
+                "attempt_path": tuple(info.name.replace("\\", "/").rsplit("/", 4)[-4:-1]),
                 "task": log.eval.task,
                 "task_version": log.eval.task_version,
                 "model": log.eval.model,
+                "effort": log.eval.model_generate_config.effort,
                 "arm": (log.eval.metadata or {}).get("arm", "measured"),
                 "study_id": (log.eval.metadata or {}).get("study_id"),
                 "panel_sha256": (log.eval.metadata or {}).get("panel_sha256"),

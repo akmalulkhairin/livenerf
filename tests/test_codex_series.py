@@ -1,5 +1,6 @@
 import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from subprocess import CalledProcessError
 
 import pytest
@@ -111,6 +112,7 @@ def test_series_resumes_one_attempt_per_arm_with_one_daily_reservation(tmp_path,
     def evaluate(task, **kwargs):
         runs.append((kwargs["sample_id"][0], kwargs["model"], kwargs["metadata"]["arm"]))
         assert kwargs["metadata"]["panel_sha256"] == "digest"
+        (Path(kwargs["log_dir"]) / "sample.eval").touch()
 
     monkeypatch.setattr(codex_series, "STUDY_HOME", tmp_path / "instrument")
     monkeypatch.setattr(codex_series, "check_version", lambda: None)
@@ -121,6 +123,7 @@ def test_series_resumes_one_attempt_per_arm_with_one_daily_reservation(tmp_path,
 
     with pytest.raises(BudgetStop):
         codex_series.run_day(tmp_path, day, panel, "digest", families)
+    (tmp_path / "series" / day / "measured" / "gpqa-b").mkdir()
     interrupted = False
     codex_series.run_day(tmp_path, day, panel, "digest", families)
     codex_series.run_day(tmp_path, day, panel, "digest", families)
