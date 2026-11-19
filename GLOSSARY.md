@@ -10,12 +10,24 @@ The fixed public compute series that records scores and shows them
 against each model's own reference score.
 
 **Drift study**:
-A benchmark calibrated for the measured model and evaluated against
+A series of repeated runs on a fixed panel, evaluated against
 pre-registered criteria for a sustained change.
 
 **Protocol parity**:
-Using LiveNerf's calibration, baseline and decision procedure for the
-Codex drift study, with the panel calibrated for the model under study.
+Using LiveNerf's sampling, baseline and decision procedure for the
+Codex drift study.
+
+**Upstream frozen panel**:
+The 78 questions LiveNerf fixed for its Opus 5.5 series. Fable 5.2 uses
+the same questions and graders.
+
+**Shared-panel comparison**:
+A comparison of scores from models that answered the upstream frozen
+panel and were graded by the same rules.
+
+**Claude reference scores**:
+The published Opus 5.5 and Fable 5.2 scores on the upstream frozen panel,
+with their original run dates and settings.
 
 **Primary model**:
 The model to which the drift study's main conclusion applies.

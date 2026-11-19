@@ -7,7 +7,7 @@ from livenerf import codex_publish
 from livenerf.codex_panel import freeze_panel
 
 
-def test_drift_publication_keeps_monitor_and_excludes_raw_logs(tmp_path, monkeypatch):
+def test_publication_keeps_previous_results_and_excludes_raw_logs(tmp_path, monkeypatch):
     remote = tmp_path / "remote"
     repo = tmp_path / "checkout"
     source = tmp_path / "reports"
@@ -69,6 +69,15 @@ def test_drift_publication_keeps_monitor_and_excludes_raw_logs(tmp_path, monkeyp
         ["git", "rev-list", "--count", codex_publish.BRANCH], cwd=remote, text=True
     ).strip()
     assert revision_count == "3"
+
+    (source / "comparison.json").write_text("Aggregate comparison fixture\n")
+    codex_publish.publish(source, comparison=study)
+    after_comparison = subprocess.check_output(
+        ["git", "ls-tree", "-r", "--name-only", codex_publish.BRANCH], cwd=remote, text=True
+    ).splitlines()
+    assert set(after_comparison) == set(listing) | {
+        f"comparison/{study}/{name}" for name in (*codex_publish.REPORTS, "comparison.json")
+    }
 
 
 def test_unfrozen_study_never_reaches_the_publisher(tmp_path, monkeypatch):

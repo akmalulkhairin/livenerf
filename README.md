@@ -8,7 +8,7 @@
   <a href="https://github.com/akmalulkhairin/livenerf/actions/workflows/ci.yml"><img src="https://github.com/akmalulkhairin/livenerf/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
   <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat-square" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/models-GPT--6.2%20Astra%20%2B%20Sol-2a78d6?style=flat-square" alt="Models GPT-6.2 Astra and Sol">
-  <a href="#study-status"><img src="https://img.shields.io/badge/study-screening-e8a13c?style=flat-square" alt="Study stage screening"></a>
+  <a href="#study-status"><img src="https://img.shields.io/badge/study-shared_panel-e8a13c?style=flat-square" alt="Shared panel comparison"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square" alt="MIT licence"></a>
 </p>
 
@@ -30,10 +30,10 @@ and graders. The chart and aggregate scores reflect Codex runs.
 
 ## Study status
 
-Astra is in screening. We will validate Sol as the candidate control on a
-shared subset before the drift baseline. The ten-question public monitor
-continues during calibration. The drift baseline will start with fresh
-samples after calibration and validation.
+Astra and Sol each run the [same 78 questions as upstream](docs/adr/0002-use-the-upstream-frozen-panel.md).
+The ten-question monitor continues until the first shared-panel chart is public.
+The first matched run is a comparison. The formal drift baseline starts after
+instrument and sensitivity validation. The earlier Astra calibration is paused.
 
 ## Results
 
@@ -65,6 +65,12 @@ describes the separate decision rule for sustained change.
   It uses no Codex login or quota.
 
 ### Reproduce locally
+
+Run `uv run --locked python -m livenerf.codex_comparison` to verify the shared
+panel, graders and prompts. Pass `--run` to collect the current UTC day's
+comparison at high effort. Pass `--publish` to publish a complete pair of
+results. The published summary includes the original dates and settings of
+the Claude reference scores.
 
 The benchmark requires Python 3.11+, `uv` and the pinned Codex CLI.
 On Linux, the systemd units are under [scripts/systemd](scripts/systemd).

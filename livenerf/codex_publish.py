@@ -54,20 +54,27 @@ def study_readme(original, study, *, design, daily):
     return original.rstrip() + "\n\n" + section + links
 
 
-def publish(source, *, study=None, design=None):
+def publish(source, *, study=None, design=None, comparison=None):
     if study is not None and not re.fullmatch(r"[a-f0-9]{16}", study):
         raise ValueError("A drift publication requires a verified study ID")
     if source is None and (study is None or design is None):
         raise ValueError("A design publication requires a verified study ID and design")
-    if source is not None and not all((source / name).is_file() for name in REPORTS):
+    if comparison is not None and (study is not None or design is not None or not re.fullmatch(r"[a-f0-9]{16}", comparison)):
+        raise ValueError("A comparison publication requires a verified comparison ID")
+    required = (*REPORTS, "comparison.json") if comparison else REPORTS
+    if source is not None and not all((source / name).is_file() for name in required):
         print("No daily report is ready to publish.", flush=True)
         return
     with TemporaryDirectory(prefix="livenerf-publication-") as directory:
         git(directory, "clone", "--depth", "1", "--single-branch", "--branch", BRANCH, REMOTE, ".")
         checkout = Path(directory)
-        reports = checkout / "drift" / study if study else checkout
+        reports = checkout
+        if study:
+            reports = checkout / "drift" / study
+        elif comparison:
+            reports = checkout / "comparison" / comparison
         reports.mkdir(parents=True, exist_ok=True)
-        names = list(REPORTS) if source is not None else []
+        names = list(required) if source is not None else []
         for name in names:
             copyfile(source / name, reports / name)
         if design is not None:
@@ -80,6 +87,21 @@ def publish(source, *, study=None, design=None):
         original = readme.read_text()
         if study:
             updated = study_readme(original, study, design=design is not None, daily=source is not None)
+        elif comparison:
+            path = f"comparison/{comparison}"
+            updated = original
+            if f"{path}/comparison.json" not in original:
+                updated = original.rstrip() + f"""
+
+## Upstream frozen panel comparison
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="{path}/daily-dark.svg">
+  <img alt="Astra and Sol on the same 78 questions" src="{path}/daily.svg">
+</picture>
+
+[Scores CSV]({path}/daily.csv) · [Panel, run settings and dated Claude references]({path}/comparison.json)
+"""
         else:
             updated = original.replace(
                 FIRST_REPORT, f"{DAILY_PICTURE}\n\n[Daily scores CSV](daily.csv)"
@@ -98,7 +120,8 @@ def publish(source, *, study=None, design=None):
         git(directory, "diff", "--check")
         git(directory, "-c", "user.name=LiveNerf for Codex",
             "-c", "user.email=akmalulkhairin@users.noreply.github.com",
-            "commit", "-m", f"chore(results): publish Codex {'design' if design else 'series'} {study or source.name}")
+            "commit", "-m", f"chore(results): publish Codex {'design' if design else 'series'} "
+            f"{study or comparison or source.name}")
         git(directory, "-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential",
             "push", "origin", f"{BRANCH}:refs/heads/{BRANCH}")
 

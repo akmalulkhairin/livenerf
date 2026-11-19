@@ -34,7 +34,7 @@ def pending_samples(directory, panel):
             for item in panel[key] if not (directory / arm / item).exists()]
 
 
-def run_day(root, day, panel, digest, families):
+def run_day(root, day, panel, digest, families, *, comparison_cap=None):
     directory = root / "series" / day
     pending = pending_samples(directory, panel)
     if not pending:
@@ -43,38 +43,45 @@ def run_day(root, day, panel, digest, families):
 
     check_version()
     budget = STUDY_HOME.parent / "study-budget.json"
+    budget_options = {"weekly_points": comparison_cap} if comparison_cap is not None else {}
     if not directory.exists():
         limits = asyncio.run(read_limits())
         if datetime.now(timezone.utc).date().isoformat() != day:
             raise BudgetStop("The UTC day ended before the panel started")
         upcoming_points = 0
-        if not directory.parent.exists() or not any(path.is_dir() for path in directory.parent.iterdir()):
+        if comparison_cap is None and (
+            not directory.parent.exists() or not any(path.is_dir() for path in directory.parent.iterdir())
+        ):
             _, reset = check_account(limits)
             last_day = datetime.fromtimestamp(reset - 1, timezone.utc).date()
             upcoming_points = (last_day - date.fromisoformat(day)).days * PREFLIGHT_RESERVATION
-        reserve(budget, limits, PREFLIGHT_RESERVATION, upcoming_points=upcoming_points)
+        reserve(budget, limits, PREFLIGHT_RESERVATION, upcoming_points=upcoming_points, **budget_options)
         directory.mkdir(parents=True)
 
     task_by_family = {}
-    for arm, item in pending:
+    for index, (arm, item) in enumerate(pending, start=1):
         if datetime.now(timezone.utc).date().isoformat() != day:
             raise BudgetStop("The UTC day ended before the panel finished")
-        reserve(budget, asyncio.run(read_limits()), 0)
+        reserve(budget, asyncio.run(read_limits()), 0, **budget_options)
         family = families[item]
         if family not in task_by_family:
-            task_by_family[family] = getattr(tasks, family)(panel="all")
+            task_by_family[family] = getattr(tasks, family)(panel="daily" if comparison_cap is not None else "all")
         model, effort = ARMS["high" if arm == "measured" else "control"]
         if datetime.now(timezone.utc).date().isoformat() != day:
             raise BudgetStop("The UTC day ended before the panel finished")
         attempt = directory / arm / item
         attempt.mkdir(parents=True)
-        eval(
+        logs = eval(
             task_by_family[family], model=f"codex-study/{model}", effort=effort,
             log_dir=str(attempt), sample_id=[item], max_connections=1, max_retries=0,
             metadata={"study_id": root.name, "panel_sha256": digest, "arm": arm,
                       "harness_sha": f"codex-study+{root.name}", "cli_version": CLI_VERSION},
-            tags=["livenerf-codex", "series", arm], display="none",
+            tags=["livenerf-codex", "comparison" if comparison_cap is not None else "series", arm], display="none",
         )
+        if comparison_cap is not None:
+            log, = logs
+            scored = sum(not sample.error and bool(sample.scores) for sample in (log.samples or ()))
+            print(f"{model}: {index}/{len(pending)} attempts complete, {scored} scored on this attempt.", flush=True)
 
 
 def main():

@@ -51,7 +51,7 @@ def daily_scores(root, models):
     return rows
 
 
-def render(rows, models, theme="light", *, study_baseline=None):
+def render(rows, models, theme="light", *, study_baseline=None, comparison=False):
     colours = THEMES[theme]
     width, height = 960, 380
     left, right, top, bottom = 64, width - 28, 92, height - 52
@@ -60,7 +60,16 @@ def render(rows, models, theme="light", *, study_baseline=None):
         [(day, 100 * scores[model].mean, 100 * scores[model].se) for day, scores in rows if model in scores]
         for model in models
     ]
-    if study_baseline:
+    title = "GPT-6.2 Astra and Sol vs. their own baselines"
+    description = ("Daily mean compute scores with approximate item-clustered 95% intervals. "
+                   "Missing points show incomplete runs. The shaded band shows baseline collection. "
+                   "Each dashed line is the mean of a model’s first ten complete runs.")
+    if comparison:
+        baseline_end = last
+        title = "GPT-6.2 Astra and Sol on LiveNerf's frozen panel"
+        description = "Initial comparison on the same 78 questions for both models, with approximate 95% intervals."
+        subtitle = "Upstream's 78 questions and graders, with approximate 95% intervals."
+    elif study_baseline:
         baseline_end = study_baseline.end
         subtitle = "Frozen Astra panel and shared Sol subset, with approximate 95% intervals."
     else:
@@ -88,13 +97,11 @@ def render(rows, models, theme="light", *, study_baseline=None):
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
         'font-family="-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" role="img" aria-labelledby="t d">',
-        '<title id="t">GPT-6.2 Astra and Sol vs. their own baselines</title>',
-        '<desc id="d">Daily mean compute scores with approximate item-clustered 95% intervals. '
-        'Missing points show incomplete runs. '
-        'The shaded band shows baseline collection. Each dashed line is the mean of a model’s first ten complete runs.</desc>',
+        f'<title id="t">{title}</title>',
+        f'<desc id="d">{description}</desc>',
         f'<rect width="{width}" height="{height}" rx="10" fill="{colours["surface"]}"/>',
         f'<text x="{left}" y="38" fill="{colours["ink"]}" font-size="20" font-weight="600">'
-        'GPT-6.2 Astra and Sol vs. their own baselines</text>',
+        f'{title}</text>',
         f'<text x="{left}" y="62" fill="{colours["ink2"]}" font-size="13">'
         f'{subtitle}</text>',
     ]
@@ -103,10 +110,11 @@ def render(rows, models, theme="light", *, study_baseline=None):
         parts.append(f'<line x1="{left}" y1="{level:.1f}" x2="{right}" y2="{level:.1f}" stroke="{colours["grid"]}"/>')
         parts.append(f'<text x="{left - 10}" y="{level + 4:.1f}" text-anchor="end" '
                      f'fill="{colours["muted"]}" font-size="12">{percent}%</text>')
-    parts.append(f'<rect x="{left}" y="{top}" width="{x(baseline_end) - left:.1f}" height="{bottom - top}" '
-                 f'fill="{colours["band"]}" opacity="0.6"/>')
-    parts.append(f'<text x="{left + 6}" y="{top + 16}" fill="{colours["ink2"]}" font-size="12">baseline collection</text>')
-    parts.append(f'<text x="{left + 6}" y="{bottom - 8}" fill="{colours["muted"]}" font-size="11">day 1 · {start:%b %d}</text>')
+    if not comparison:
+        parts.append(f'<rect x="{left}" y="{top}" width="{x(baseline_end) - left:.1f}" height="{bottom - top}" '
+                     f'fill="{colours["band"]}" opacity="0.6"/>')
+        parts.append(f'<text x="{left + 6}" y="{top + 16}" fill="{colours["ink2"]}" font-size="12">baseline collection</text>')
+        parts.append(f'<text x="{left + 6}" y="{bottom - 8}" fill="{colours["muted"]}" font-size="11">day 1 · {start:%b %d}</text>')
     for offset in range(0, (end - start).days + 1, 7):
         day = start + timedelta(days=offset)
         parts.append(f'<text x="{x(day):.1f}" y="{bottom + 22}" text-anchor="middle" '
@@ -121,7 +129,7 @@ def render(rows, models, theme="light", *, study_baseline=None):
         baseline = None
         if study_baseline and model in study_baseline.means:
             baseline = 100 * study_baseline.means[model]
-        elif not study_baseline and len(points) >= BASELINE_DAYS:
+        elif not study_baseline and not comparison and len(points) >= BASELINE_DAYS:
             baseline = mean(score for _, score, _ in points[:BASELINE_DAYS])
         if baseline is not None:
             level = y(baseline)
@@ -147,7 +155,7 @@ def render(rows, models, theme="light", *, study_baseline=None):
               f'Collecting the baseline · {" · ".join(progress)}' if any(
                   len(points) < BASELINE_DAYS for points in series
               ) else "")
-    if status:
+    if status and not comparison:
         midpoint = (x(baseline_end) + right) / 2
         parts.append(f'<text x="{midpoint:.1f}" y="{(top + bottom) / 2:.1f}" text-anchor="middle" '
                      f'fill="{colours["muted"]}" font-size="14">{status}</text>')
@@ -169,8 +177,8 @@ def write_report(root, models):
     write_charts(root, rows, models)
 
 
-def write_charts(root, rows, models, *, study_baseline=None):
+def write_charts(root, rows, models, *, study_baseline=None, comparison=False):
     for theme, name in (("light", "daily.svg"), ("dark", "daily-dark.svg")):
         with NamedTemporaryFile(mode="w", encoding="utf-8", dir=root, delete=False) as file:
-            file.write(render(rows, models, theme, study_baseline=study_baseline))
+            file.write(render(rows, models, theme, study_baseline=study_baseline, comparison=comparison))
         Path(file.name).replace(root / name)
