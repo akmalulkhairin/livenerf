@@ -1,4 +1,5 @@
 import json
+import sys
 import time
 from types import SimpleNamespace
 
@@ -64,3 +65,24 @@ def test_larger_batches_stay_within_measured_screening_family(family):
     assert codex_calibrate.scheduled_items(measured + maths, "screen") == measured
     assert codex_calibrate.scheduled_items(maths + measured, "screen") == maths[:16]
     assert codex_calibrate.scheduled_items(measured + maths, "confirmation") == measured[:16]
+
+
+@pytest.mark.parametrize("family", ("gpqa", "mmlupro", "comps", "aime"))
+def test_manual_large_batches_require_a_measured_family(tmp_path, monkeypatch, family):
+    monkeypatch.setattr(sys, "argv", ["codex_calibrate", "--batch", "128", "--screen-family", family])
+    monkeypatch.setattr(codex_calibrate, "STUDY_HOME", tmp_path / "instrument")
+    monkeypatch.setattr(codex_calibrate, "restore_aime_2026", lambda: None)
+    monkeypatch.setattr(codex_calibrate, "study_id", lambda: "test")
+    monkeypatch.setattr(codex_calibrate, "check_version", lambda: None)
+    monkeypatch.setattr(codex_calibrate, "LOADERS", {family: lambda: []})
+    calls = []
+    monkeypatch.setattr(codex_calibrate, "collect_batch",
+                        lambda root, pool, size, **kwargs: calls.append((size, kwargs["screen_family"])))
+
+    if family in {"comps", "aime"}:
+        with pytest.raises(SystemExit) as error:
+            codex_calibrate.main()
+        assert error.value.code == 2 and not calls
+    else:
+        codex_calibrate.main()
+        assert calls == [(128, family)]

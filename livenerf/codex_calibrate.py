@@ -25,7 +25,8 @@ AIME_2026_REVISION = "d2de22f3c656b4f56cf8981212186377d1e23bc3"
 STUDY_EFFORT = "high"
 PREFLIGHT_RESERVATION = 2
 MEASUREMENT_SAMPLES = 64
-SCHEDULED_SCREENING_SAMPLES = 128
+SCREENING_BATCH_SAMPLES = 128
+MEASURED_SCREENING_FAMILIES = {"gpqa", "mmlupro"}
 METER_SIGNAL = 3
 
 
@@ -73,7 +74,7 @@ def next_batch(pool, screen, confirmation, stage, size):
 def scheduled_items(pending, stage):
     if stage == "screen" and pending:
         family = pending[0][0]
-        if family in {"gpqa", "mmlupro"}:
+        if family in MEASURED_SCREENING_FAMILIES:
             return [sample for sample in pending if sample[0] == family]
     return pending[:calibrate.CHUNK]
 
@@ -209,7 +210,9 @@ def main():
     parser.add_argument("--screen-family", choices=LOADERS, help="Screen only this family in a manual batch")
     parser.add_argument("--weekly-points", type=int, help="Use an explicitly authorised manual screening allowance")
     args = parser.parse_args()
-    batch_limit = MEASUREMENT_SAMPLES if args.screen_family else SCHEDULED_SCREENING_SAMPLES
+    batch_limit = SCREENING_BATCH_SAMPLES
+    if args.screen_family and args.screen_family not in MEASURED_SCREENING_FAMILIES:
+        batch_limit = MEASUREMENT_SAMPLES
     if args.size is not None and not 1 <= args.size <= batch_limit:
         parser.error(f"Batch size must be between 1 and {batch_limit}.")
     if args.screen_family and args.size is None:

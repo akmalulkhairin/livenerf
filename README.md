@@ -122,7 +122,7 @@ MMLU-Pro batch, matching the measured workloads. Other families and
 confirmation use up to 16 questions per batch.
 
 For an authorised larger screening batch, run `python -m livenerf.codex_calibrate
---batch 64 --screen-family mmlupro --weekly-points 30` with the agreed weekly
+--batch 128 --screen-family mmlupro --weekly-points 30` with the agreed weekly
 cap. It books the batch against the same local budget ledger and applies the
 account-wide stop before each sample. The scheduled cap is 20 points.
 

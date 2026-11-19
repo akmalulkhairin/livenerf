@@ -2,7 +2,7 @@ import subprocess
 import sys
 
 from .codex_budget import daily_capacity
-from .codex_calibrate import PREFLIGHT_RESERVATION, SCHEDULED_SCREENING_SAMPLES, study_id
+from .codex_calibrate import PREFLIGHT_RESERVATION, SCREENING_BATCH_SAMPLES, study_id
 from .codex_panel import read_panel
 from .codex_validate import validation_result, validation_rows
 from .providers.codex.instrument import STUDY_HOME
@@ -10,7 +10,7 @@ from .providers.codex.instrument import STUDY_HOME
 
 def commands_for_study(root):
     if not (root / "panel").exists():
-        return [("codex_calibrate", "--batch", str(SCHEDULED_SCREENING_SAMPLES))]
+        return [("codex_calibrate", "--batch", str(SCREENING_BATCH_SAMPLES))]
 
     panel, digest = read_panel(root)
     validation = validation_result(panel, validation_rows(root, panel, digest))
