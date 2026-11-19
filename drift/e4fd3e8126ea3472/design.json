@@ -1,0 +1,14 @@
+{
+  "astra_items": 78,
+  "panel_sha256": "6f58f5a7621ddb486abe592cc292b7e66097a86e3dc692766fd36c1f2421e11f",
+  "predicted_sensitivity": {
+    "assumed_pass_rate": 0.5,
+    "equal_panel_for_both_models": true,
+    "mde_points": 8.653857891729931,
+    "se_points": 2.5318484177091665
+  },
+  "samples_per_item_per_day": 1,
+  "sol_items": 78,
+  "study_id": "e4fd3e8126ea3472",
+  "upstream_revision": "52ca4d947f4a84be849099c1f28de10b33ec1b77"
+}

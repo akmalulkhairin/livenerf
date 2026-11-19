@@ -36,3 +36,7 @@ When citing a result, use the run date and the commit from this branch.
 </picture>
 
 [Scores CSV](comparison/8ad04dd62da4845f/daily.csv) · [Panel, run settings and dated Claude references](comparison/8ad04dd62da4845f/comparison.json)
+
+## Drift study e4fd3e8126ea3472
+
+[Frozen panel summary and predicted sensitivity](drift/e4fd3e8126ea3472/design.json)
