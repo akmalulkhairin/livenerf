@@ -1,0 +1,48 @@
+{
+  "claude_references": [
+    {
+      "cli_version": "2.1.280 (Claude Code)",
+      "effort": "high",
+      "harness": "461391b6fce64167",
+      "model": "claudecode/claude-opus-5-5",
+      "score": 0.6538,
+      "scored": 78,
+      "source": "https://github.com/ninjahawk/livenerf/blob/main/results/daily.csv",
+      "utc_day": "2026-11-18"
+    },
+    {
+      "cli_version": "2.1.319 (Claude Code)",
+      "effort": "high",
+      "harness": "aaa78db862b2c97852f2cb6608e3078bfc6ce732-dirty+e18b888809717638",
+      "model": "claudecode/claude-fable-5-2",
+      "score": 0.8462,
+      "scored": 78,
+      "source": "https://github.com/ninjahawk/livenerf/blob/main/results/fable52_bridge.csv",
+      "utc_day": "2026-11-18"
+    }
+  ],
+  "codex_cli": "codex-cli 0.169.1",
+  "families": {
+    "aime": 3,
+    "comps": 4,
+    "gpqa": 12,
+    "mmlupro": 59
+  },
+  "grading_digest": "2cd8e73b3b9211d606ce67ef7f11f0ee42280cf10999686d7ee8117fd0524730",
+  "item_digest": "2c2110c9b375c1858a1569b14c559afb51898998da18e874db1038a6601b9090",
+  "models": {
+    "gpt-6.2-astra": {
+      "correct": 47,
+      "effort": "high",
+      "scored": 78
+    },
+    "gpt-6.2-sol": {
+      "correct": 38,
+      "effort": "high",
+      "scored": 78
+    }
+  },
+  "upstream_panel_lock": "487c65e15230286e5f4818ef70749a94e0b4052a381413ce527bb087a5f846da",
+  "upstream_panel_revision": "52ca4d947f4a84be849099c1f28de10b33ec1b77",
+  "utc_day": "2026-11-19"
+}

@@ -27,3 +27,12 @@ developed by the UK AI Security Institute and Meridian Labs. OpenAI
 provides the Codex CLI and GPT-6.2 models. [LiveNerf](https://github.com/ninjahawk/livenerf) · [Inspect](https://inspect.aisi.org.uk/)
 
 When citing a result, use the run date and the commit from this branch.
+
+## Upstream frozen panel comparison
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="comparison/8ad04dd62da4845f/daily-dark.svg">
+  <img alt="Astra and Sol on the same 78 questions" src="comparison/8ad04dd62da4845f/daily.svg">
+</picture>
+
+[Scores CSV](comparison/8ad04dd62da4845f/daily.csv) · [Panel, run settings and dated Claude references](comparison/8ad04dd62da4845f/comparison.json)
