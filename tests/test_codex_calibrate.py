@@ -59,7 +59,7 @@ def test_measurement_resumes_with_original_limit_despite_reset_timestamp_change(
 
 @pytest.mark.parametrize("family", ("gpqa", "mmlupro"))
 def test_larger_batches_stay_within_measured_screening_family(family):
-    measured = [(family, str(index)) for index in range(48)]
+    measured = [(family, str(index)) for index in range(128)]
     maths = [("aime", str(index)) for index in range(48)]
     assert codex_calibrate.scheduled_items(measured + maths, "screen") == measured
     assert codex_calibrate.scheduled_items(maths + measured, "screen") == maths[:16]

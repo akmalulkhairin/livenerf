@@ -117,7 +117,7 @@ runs the same publisher after an admitted series attempt.
 A manually authorised `codex_calibrate --measure` pass collects up
 to 64 samples or stops after a three-point rise in the weekly meter.
 It keeps the account-wide stop and leaves the scheduled budget in place.
-The scheduled runner can screen up to 64 questions in a single GPQA or
+The scheduled runner can screen up to 128 questions in a single GPQA or
 MMLU-Pro batch, matching the measured workloads. Other families and
 confirmation use up to 16 questions per batch.
 

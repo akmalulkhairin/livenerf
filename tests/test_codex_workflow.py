@@ -2,7 +2,7 @@ from livenerf import codex_workflow
 
 
 def test_scheduled_workflow_respects_panel_validation_and_budget(tmp_path, monkeypatch):
-    assert codex_workflow.commands_for_study(tmp_path) == [("codex_calibrate", "--batch", "64")]
+    assert codex_workflow.commands_for_study(tmp_path) == [("codex_calibrate", "--batch", "128")]
     (tmp_path / "panel").mkdir()
     validation = {"pending_pairs": 1, "passed": False}
     monkeypatch.setattr(codex_workflow, "read_panel", lambda root: ({}, "digest"))

@@ -25,6 +25,7 @@ AIME_2026_REVISION = "d2de22f3c656b4f56cf8981212186377d1e23bc3"
 STUDY_EFFORT = "high"
 PREFLIGHT_RESERVATION = 2
 MEASUREMENT_SAMPLES = 64
+SCHEDULED_SCREENING_SAMPLES = 128
 METER_SIGNAL = 3
 
 
@@ -208,8 +209,9 @@ def main():
     parser.add_argument("--screen-family", choices=LOADERS, help="Screen only this family in a manual batch")
     parser.add_argument("--weekly-points", type=int, help="Use an explicitly authorised manual screening allowance")
     args = parser.parse_args()
-    if args.size is not None and not 1 <= args.size <= MEASUREMENT_SAMPLES:
-        parser.error(f"Batch size must be between 1 and {MEASUREMENT_SAMPLES}.")
+    batch_limit = MEASUREMENT_SAMPLES if args.screen_family else SCHEDULED_SCREENING_SAMPLES
+    if args.size is not None and not 1 <= args.size <= batch_limit:
+        parser.error(f"Batch size must be between 1 and {batch_limit}.")
     if args.screen_family and args.size is None:
         parser.error("Manual family screening requires an explicit batch size.")
     if args.weekly_points is not None and (
