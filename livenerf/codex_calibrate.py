@@ -17,7 +17,7 @@ from inspect_ai import eval
 
 from .benchmarks import calibrate, tasks
 from .benchmarks.data import AIME_SHA256, LOADERS, _aime_norm, cache_dir
-from .codex_budget import ACCOUNT_STOP, WEEKLY_POINTS, BudgetStop, check_account, reserve, usage_percent
+from .codex_budget import WEEKLY_POINTS, BudgetStop, check_account, reserve, usage_percent
 from .common import REPO_ROOT
 from .providers.codex.instrument import CLI_VERSION, MODEL, STUDY_HOME, InstrumentError, app_server, check_version
 
@@ -218,9 +218,9 @@ def main():
     if args.screen_family and args.size is None:
         parser.error("Manual family screening requires an explicit batch size.")
     if args.weekly_points is not None and (
-        not args.screen_family or not WEEKLY_POINTS <= args.weekly_points <= ACCOUNT_STOP
+        not args.screen_family or args.weekly_points < WEEKLY_POINTS
     ):
-        parser.error(f"--weekly-points requires --screen-family and a cap of {WEEKLY_POINTS} to {ACCOUNT_STOP}.")
+        parser.error(f"--weekly-points requires --screen-family and at least {WEEKLY_POINTS} study points.")
     os.umask(0o077)
     try:
         restore_aime_2026()

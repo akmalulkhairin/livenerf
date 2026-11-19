@@ -52,7 +52,7 @@ def test_manual_allowance_uses_the_same_ledger_and_account_stop(tmp_path):
         reserve(path, limits, 0)
     weekly["usedPercent"] = 48
     with pytest.raises(BudgetStop, match="Account usage"):
-        reserve(path, limits, 2, weekly_points=50)
+        reserve(path, limits, 2, weekly_points=55)
 
 
 @pytest.mark.parametrize(("event", "marker"), (
