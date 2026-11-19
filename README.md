@@ -15,9 +15,9 @@
 [The plan](docs/CODEX_PROTOCOL.md) · [Results](#results) · [How it works](#how-it-works) · [Upstream protocol](PREREGISTRATION.md) · [Cite](#cite)
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/daily-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/daily.svg">
-  <img alt="Daily compute scores and baseline progress for GPT-6.2 Astra and Sol" src="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/daily.svg" width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/comparison/8ad04dd62da4845f/daily-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/comparison/8ad04dd62da4845f/daily.svg">
+  <img alt="GPT-6.2 Astra and Sol scores on LiveNerf's frozen panel with 95% confidence intervals" src="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/comparison/8ad04dd62da4845f/daily.svg" width="100%">
 </picture>
 
 </div>
@@ -30,36 +30,30 @@ and graders. The chart and aggregate scores reflect Codex runs.
 
 ## Study status
 
-Astra and Sol each run the [same 78 questions as upstream](docs/adr/0002-use-the-upstream-frozen-panel.md).
-The ten-question monitor continues until the first shared-panel chart is public.
-The first matched run is a comparison. The formal drift baseline starts after
-instrument and sensitivity validation. The earlier Astra calibration is paused.
+Astra and Sol completed the [same 78 questions as upstream](docs/adr/0002-use-the-upstream-frozen-panel.md)
+on 19 November 2026 UTC. This first run is a comparison. The formal drift
+baseline starts after instrument and sensitivity validation. The earlier Astra
+calibration is paused and the ten-question monitor is archived.
 
 ## Results
 
-- [Monitoring chart and CSV](https://github.com/akmalulkhairin/livenerf/tree/codex-results)
+- [Shared-panel scores CSV](https://github.com/akmalulkhairin/livenerf/blob/codex-results/comparison/8ad04dd62da4845f/daily.csv)
+- [Run settings and dated Claude reference scores](https://github.com/akmalulkhairin/livenerf/blob/codex-results/comparison/8ad04dd62da4845f/comparison.json)
+- [Archived ten-question monitor chart and CSV](https://github.com/akmalulkhairin/livenerf/tree/codex-results)
 - [Pilot CSV](https://github.com/akmalulkhairin/livenerf/blob/codex-results/pilot.csv)
 
-The monitor's grader awards partial credit. A blank score means the run was
-missing or incomplete. The chart shows approximate 95% confidence intervals
-for daily scores, with variability clustered by question template. The
-[study decision record](docs/adr/0001-use-livenerf-protocol-for-codex-drift-study.md)
-describes the separate decision rule for sustained change.
+The vertical bars show approximate 95% confidence intervals for the two
+single-day scores. The dated Claude references use the same panel and preserve
+upstream's original run settings.
 
 ## How it works
 
-- **Daily compute monitor.** The monitor runs ten questions per model and
-  checks the live 50% account stop before each model. Its timer is scheduled
-  ahead of the study timer.
-- **Benchmark on the workstation.** The [study timer](scripts/systemd/livenerf-codex-calibrate.timer)
-  advances calibration, validation or the daily series when the phase is ready.
-  It uses a dedicated Codex profile and checks account usage before every sample.
-  A failed service can restart twice, with five minutes between attempts.
-  During the daily series, a restart resumes at the remaining questions for
-  that UTC day.
-- **Reports from saved logs.** The monitoring runner turns complete runs into a
-  CSV and light and dark SVG charts. A local publisher pushes only the
-  aggregates to the results branch. Raw captures and account sign-in stay local.
+- **Benchmark on the workstation.** The comparison uses a dedicated Codex
+  profile and checks account usage before every sample. A comparison needs
+  156 scored answers, 78 for each model.
+- **Reports from saved logs.** The comparison publishes a CSV, run settings
+  and light and dark SVG charts once both models have all 78 scores. The
+  publisher pushes only aggregates. Raw captures and account sign-in stay local.
 - **Tests on GitHub.** [CI](.github/workflows/ci.yml) checks the runner, provider,
   scoring and reporting, and verifies that the public panel can be regenerated.
   It uses no Codex login or quota.
@@ -80,12 +74,17 @@ uv sync --locked
 uv run --locked pytest -q
 CODEX_HOME="$HOME/.local/state/livenerf-codex/instrument" codex login
 uv run --locked python -m livenerf.providers.codex.instrument
-uv run --locked python -m livenerf.codex_calibrate
 ```
 
-The last two commands check the instrument and dataset pins without submitting
-benchmark questions. To run a single sample, pass `--one` to the calibration
-command. The runner checks the account meter before allowing the call.
+The instrument command checks the CLI and workstation settings without
+submitting benchmark questions.
+
+<details>
+<summary>Earlier Astra calibration and drift workflow</summary>
+
+These commands describe the paused Astra-specific study. Its calibration and
+series use a different panel design described in the
+[original study decision record](docs/adr/0001-use-livenerf-protocol-for-codex-drift-study.md).
 
 Use `python -m livenerf.codex_design` to check calibration progress and,
 once confirmation is complete, inspect the candidate panel and predicted
@@ -138,10 +137,12 @@ The study ledger adds the rise in weekly account usage, the two-point
 reservation for each admitted batch in that window and one point of
 headroom. Reservations stay in the ledger until the weekly reset.
 
+</details>
+
 ### Integrate upstream changes
 
 Merge upstream into a separate branch, run CI locally and check the
-calibration preflight before merging to `main`.
+shared-panel preflight before merging to `main`.
 
 ```sh
 git remote add upstream https://github.com/ninjahawk/livenerf.git
@@ -150,7 +151,7 @@ git switch -c integrate-upstream
 git merge upstream/main
 uv sync --locked
 uv run --locked pytest -q
-uv run --locked python -m livenerf.codex_calibrate
+uv run --locked python -m livenerf.codex_comparison
 ```
 
 Add the upstream remote only once. Deploy a tested revision to a separate
