@@ -83,5 +83,7 @@ and can register usage after a batch has finished.
 The runner reserves two points per daily run and keeps one point of weekly
 headroom. Seven daily reservations and headroom account for 15 points,
 leaving five points for observed meter movement in the same window.
-The series preflight checks reservation capacity. The live meter can
-still pause collection if usage exceeds the available allowance.
+The series preflight checks reservation capacity. Before the first baseline
+day, the runner checks that the current allowance can cover the planned
+daily reservations through the next quota reset. The live meter can still
+pause collection if usage exceeds the available allowance.

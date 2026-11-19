@@ -4,13 +4,13 @@ import fcntl
 import json
 import os
 import subprocess
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from inspect_ai import eval
 
 from .benchmarks import tasks
 from .benchmarks.data import LOADERS
-from .codex_budget import BudgetStop, daily_capacity, reserve
+from .codex_budget import BudgetStop, check_account, daily_capacity, reserve
 from .codex_calibrate import PREFLIGHT_RESERVATION, read_limits, restore_aime_2026, study_id
 from .codex_panel import read_panel, verified_items
 from .codex_publish import publish_design
@@ -44,7 +44,15 @@ def run_day(root, day, panel, digest, families):
     check_version()
     budget = STUDY_HOME.parent / "study-budget.json"
     if not directory.exists():
-        reserve(budget, asyncio.run(read_limits()), PREFLIGHT_RESERVATION)
+        limits = asyncio.run(read_limits())
+        if datetime.now(timezone.utc).date().isoformat() != day:
+            raise BudgetStop("The UTC day ended before the panel started")
+        upcoming_points = 0
+        if not directory.parent.exists() or not any(path.is_dir() for path in directory.parent.iterdir()):
+            _, reset = check_account(limits)
+            last_day = datetime.fromtimestamp(reset - 1, timezone.utc).date()
+            upcoming_points = (last_day - date.fromisoformat(day)).days * PREFLIGHT_RESERVATION
+        reserve(budget, limits, PREFLIGHT_RESERVATION, upcoming_points=upcoming_points)
         directory.mkdir(parents=True)
 
     task_by_family = {}

@@ -1,11 +1,11 @@
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from subprocess import CalledProcessError
 
 import pytest
 
 from livenerf import codex_series
-from livenerf.codex_budget import BudgetStop, daily_capacity
+from livenerf.codex_budget import BudgetStop, daily_capacity, reserve
 
 
 def test_two_point_reservations_fit_the_weekly_allowance():
@@ -65,6 +65,32 @@ def test_unpublished_design_prevents_baseline(tmp_path, monkeypatch, capsys):
     assert "Series stopped: Command 'git push'" in capsys.readouterr().err
 
 
+def test_baseline_waits_if_current_window_cannot_cover_its_first_days(tmp_path, monkeypatch):
+    now = datetime.now(timezone.utc)
+    reset = (now + timedelta(days=4)).replace(hour=8, minute=0, second=0, microsecond=0)
+    limits = {"primary": {"usedPercent": 0, "windowDurationMins": 10080,
+                          "resetsAt": int(reset.timestamp())}}
+    budget = tmp_path / "study-budget.json"
+    for _ in range(5):
+        reserve(budget, limits, 2)
+    saved_budget = budget.read_bytes()
+    root = tmp_path / "study"
+    (root / "series").mkdir(parents=True)
+    panel = {"panel": ["gpqa-a", "gpqa-b"], "control": ["gpqa-a"]}
+
+    async def read_limits():
+        return limits
+
+    monkeypatch.setattr(codex_series, "STUDY_HOME", tmp_path / "instrument")
+    monkeypatch.setattr(codex_series, "check_version", lambda: None)
+    monkeypatch.setattr(codex_series, "read_limits", read_limits)
+    monkeypatch.setattr(codex_series, "eval", lambda *args, **kwargs: pytest.fail("would start a baseline"))
+    with pytest.raises(BudgetStop, match="cannot cover the remaining baseline dates"):
+        codex_series.run_day(root, now.date().isoformat(), panel, "digest", {})
+    assert budget.read_bytes() == saved_budget
+    assert not list((root / "series").iterdir())
+
+
 def test_series_resumes_one_attempt_per_arm_with_one_daily_reservation(tmp_path, monkeypatch):
     panel = {"panel": ["gpqa-a", "gpqa-b"], "control": ["gpqa-a"]}
     families = {"gpqa-a": "gpqa", "gpqa-b": "gpqa"}
@@ -74,9 +100,10 @@ def test_series_resumes_one_attempt_per_arm_with_one_daily_reservation(tmp_path,
     interrupted = True
 
     async def read_limits():
-        return {}
+        return {"primary": {"usedPercent": 0, "windowDurationMins": 10080,
+                            "resetsAt": int((datetime.now(timezone.utc) + timedelta(days=1)).timestamp())}}
 
-    def reserve(path, meter, points):
+    def reserve(path, meter, points, *, upcoming_points=0):
         allowances.append(points)
         if interrupted and allowances == [2, 0, 0]:
             raise BudgetStop("Test interruption")
