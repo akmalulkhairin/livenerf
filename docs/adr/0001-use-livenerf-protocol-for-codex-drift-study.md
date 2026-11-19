@@ -28,3 +28,7 @@ On 19 November 2026 the scheduled study allowance increased to 20 points.
 The first allowance could fit four daily reservations per week. The larger
 allowance fits seven and leaves five points for observed meter movement
 after the required headroom. The account-wide stop is 50%.
+
+On 19 November 2026 the ten-question monitor resumed alongside calibration.
+The monitor runs first each morning and keeps its own scores and chart.
+It checks the account-wide stop before each model.

@@ -3,7 +3,7 @@
 This protocol records the Codex adaptation of
 [LiveNerf's study design](../PREREGISTRATION.md). It was written during
 screening, before confirmation, instrument validation or baseline collection.
-The earlier public ten-question monitor remains available as a separate series.
+The public ten-question monitor continues as a separate series.
 
 ## Models and instrument
 

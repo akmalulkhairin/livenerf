@@ -1,5 +1,6 @@
 [Unit]
 Description=Advance the LiveNerf Codex study
+After=livenerf-codex.service
 StartLimitIntervalSec=5h
 StartLimitBurst=3
 

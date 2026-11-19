@@ -31,9 +31,9 @@ and graders. The chart and aggregate scores reflect Codex runs.
 ## Study status
 
 Astra is in screening. We will validate Sol as the candidate control on a
-shared subset before the drift baseline. The ten-question public monitor is paused during
-calibration. Its chart stays available for reference. The drift baseline
-will start with fresh samples after calibration and validation.
+shared subset before the drift baseline. The ten-question public monitor
+continues during calibration. The drift baseline will start with fresh
+samples after calibration and validation.
 
 ## Results
 
@@ -48,6 +48,9 @@ describes the separate decision rule for sustained change.
 
 ## How it works
 
+- **Daily compute monitor.** The monitor runs ten questions per model and
+  checks the live 50% account stop before each model. Its timer is scheduled
+  ahead of the study timer.
 - **Benchmark on the workstation.** The [study timer](scripts/systemd/livenerf-codex-calibrate.timer)
   advances calibration, validation or the daily series when the phase is ready.
   It uses a dedicated Codex profile and checks account usage before every sample.
@@ -125,6 +128,9 @@ For an authorised larger screening batch, run `python -m livenerf.codex_calibrat
 --batch 128 --screen-family mmlupro --weekly-points 30` with the agreed weekly
 cap. It books the batch against the same local budget ledger and applies the
 account-wide stop before each sample. The scheduled cap is 20 points.
+The study ledger adds the rise in weekly account usage, the two-point
+reservation for each admitted batch in that window and one point of
+headroom. Reservations stay in the ledger until the weekly reset.
 
 ### Integrate upstream changes
 
