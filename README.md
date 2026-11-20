@@ -8,16 +8,16 @@
   <a href="https://github.com/akmalulkhairin/livenerf/actions/workflows/ci.yml"><img src="https://github.com/akmalulkhairin/livenerf/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
   <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat-square" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/models-GPT--6.2%20Astra%20%2B%20Sol-2a78d6?style=flat-square" alt="Models GPT-6.2 Astra and Sol">
-  <a href="#study-status"><img src="https://img.shields.io/badge/study-shared_panel-e8a13c?style=flat-square" alt="Shared panel comparison"></a>
+  <a href="#study-status"><img src="https://img.shields.io/badge/study-drift_series-e8a13c?style=flat-square" alt="Daily drift series"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square" alt="MIT licence"></a>
 </p>
 
 [The plan](docs/CODEX_PROTOCOL.md) · [Results](#results) · [How it works](#how-it-works) · [Upstream protocol](PREREGISTRATION.md) · [Cite](#cite)
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/comparison/8ad04dd62da4845f/daily-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/comparison/8ad04dd62da4845f/daily.svg">
-  <img alt="GPT-6.2 Astra and Sol scores on LiveNerf's frozen panel with 95% confidence intervals" src="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/comparison/8ad04dd62da4845f/daily.svg" width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/drift/e4fd3e8126ea3472/daily-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/drift/e4fd3e8126ea3472/daily.svg">
+  <img alt="Daily GPT-6.2 Astra and Sol scores with 95% confidence intervals and the baseline window" src="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/drift/e4fd3e8126ea3472/daily.svg" width="100%">
 </picture>
 
 </div>
@@ -41,15 +41,17 @@ for both accuracy and output tokens.
 
 ## Results
 
-- [Shared-panel scores CSV](https://github.com/akmalulkhairin/livenerf/blob/codex-results/comparison/8ad04dd62da4845f/daily.csv)
+- [Daily drift scores CSV](https://github.com/akmalulkhairin/livenerf/blob/codex-results/drift/e4fd3e8126ea3472/daily.csv)
+- [Baseline coverage and drift decisions](https://github.com/akmalulkhairin/livenerf/blob/codex-results/drift/e4fd3e8126ea3472/study.json)
+- [Initial comparison scores CSV](https://github.com/akmalulkhairin/livenerf/blob/codex-results/comparison/8ad04dd62da4845f/daily.csv)
 - [Run settings and dated Claude reference scores](https://github.com/akmalulkhairin/livenerf/blob/codex-results/comparison/8ad04dd62da4845f/comparison.json)
-- [Formal drift study designs and results](https://github.com/akmalulkhairin/livenerf/tree/codex-results/drift)
+- [Formal drift study design](https://github.com/akmalulkhairin/livenerf/blob/codex-results/drift/e4fd3e8126ea3472/design.json)
 - [Archived ten-question monitor chart and CSV](https://github.com/akmalulkhairin/livenerf/tree/codex-results)
 - [Pilot CSV](https://github.com/akmalulkhairin/livenerf/blob/codex-results/pilot.csv)
 
-The vertical bars show approximate 95% confidence intervals for the two
-single-day scores. The dated Claude references use the same panel and preserve
-upstream's original run settings.
+The chart shades the ten-day baseline window and shows approximate 95%
+confidence intervals for each day's scores. The dated Claude references use
+the same panel and preserve upstream's original run settings.
 
 ## How it works
 
