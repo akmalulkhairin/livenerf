@@ -1,0 +1,39 @@
+{
+  "stage": "series",
+  "panel_sha256": "6f58f5a7621ddb486abe592cc292b7e66097a86e3dc692766fd36c1f2421e11f",
+  "series_started": "2026-11-20T00:00:00+00:00",
+  "upstream_revision": "52ca4d947f4a84be849099c1f28de10b33ec1b77",
+  "baseline_ends": "2026-11-30T00:00:00+00:00",
+  "panel_sizes": {
+    "measured": 78,
+    "control": 78
+  },
+  "daily": {
+    "measured": [
+      {
+        "day": "2026-11-20",
+        "score": 0.5256410256410257,
+        "se": 0.056905314133886616,
+        "samples": 78,
+        "errors": 0,
+        "missing": 0
+      }
+    ],
+    "control": [
+      {
+        "day": "2026-11-20",
+        "score": 0.5769230769230769,
+        "se": 0.056301927285492305,
+        "samples": 78,
+        "errors": 0,
+        "missing": 0
+      }
+    ]
+  },
+  "baseline_sensitivity": {},
+  "windows": {
+    "measured": [],
+    "control": []
+  },
+  "decisions": []
+}

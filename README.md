@@ -39,6 +39,15 @@ When citing a result, use the run date and the commit from this branch.
 
 ## Drift study e4fd3e8126ea3472
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="drift/e4fd3e8126ea3472/daily-dark.svg">
+  <img alt="Daily scores and baseline progress for the drift study" src="drift/e4fd3e8126ea3472/daily.svg">
+</picture>
+
+[Daily scores CSV](drift/e4fd3e8126ea3472/daily.csv)
+
+[Coverage, baseline sensitivity and drift decisions](drift/e4fd3e8126ea3472/study.json)
+
 [Instrument validation and measured sensitivity](drift/e4fd3e8126ea3472/validation.json)
 
 [Frozen panel summary and predicted sensitivity](drift/e4fd3e8126ea3472/design.json)
