@@ -153,14 +153,14 @@ def render(rows, models, theme="light", *, study_baseline=None, comparison=False
             parts.append(f'<line x1="{x(baseline_start):.1f}" y1="{level:.1f}" x2="{right}" y2="{level:.1f}" stroke="{colour}" '
                          'stroke-width="1.5" stroke-dasharray="6 5"/>')
             baseline_labels.append((level, right - 4, "end", colour, f"{name} baseline {baseline:.1f}%"))
+        chart_points = points
         if initial:
             estimate = initial_scores[model]
-            parts.extend(render_score_series([(start, 100 * estimate.mean, 100 * estimate.se)],
-                                             x, y, colour, colours["surface"]))
+            chart_points = [(start, 100 * estimate.mean, 100 * estimate.se), *points]
+        for _, segment in groupby(enumerate(chart_points), key=lambda pair: pair[1][0].toordinal() - pair[0]):
+            parts.extend(render_score_series([point for _, point in segment], x, y, colour, colours["surface"]))
         if not points:
             continue
-        for _, segment in groupby(enumerate(points), key=lambda pair: pair[1][0].toordinal() - pair[0]):
-            parts.extend(render_score_series([point for _, point in segment], x, y, colour, colours["surface"]))
         day, score, _ = points[-1]
         anchor = "start" if x(day) + 120 <= right else "end"
         label_x = x(day) + (10 if anchor == "start" else -10)

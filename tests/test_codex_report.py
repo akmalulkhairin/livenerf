@@ -62,3 +62,10 @@ def test_initial_comparison_precedes_baseline_in_both_themes(tmp_path):
         assert len(points) == 4
         assert points[0] == points[2] < float(band.get("x")) == points[1] == points[3]
         assert len(chart.findall("{*}line[@opacity='0.5']")) == 4
+
+        point_coordinates = [f"{point.get('cx')},{point.get('cy')}" for point in chart.findall("{*}circle")]
+        lines = chart.findall("{*}path[@fill='none']")
+        assert [line.get("d") for line in lines] == [
+            f"M{point_coordinates[0]} L{point_coordinates[1]}",
+            f"M{point_coordinates[2]} L{point_coordinates[3]}",
+        ]
