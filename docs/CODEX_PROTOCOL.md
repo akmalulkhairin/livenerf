@@ -71,7 +71,13 @@ Set `LIVENERF_STUDY_ALLOWANCE` to `reset_timestamp:points` in the scheduled
 service to raise the ledger allowance for one confirmed weekly window. Use
 `reset_timestamp:off` to suspend the ledger cap for that window. The ledger
 continues recording reservations and usage. The next window uses the normal
-cap. The account-wide stop applies throughout.
+cap. Use `off` on its own when measuring usage across quota windows. The
+account-wide stop applies throughout.
+
+The workstation saves the weekly account meter before and after each invocation
+that records daily series attempts. Use at least five complete UTC days with
+results for both models before estimating a weekly budget. The account meter
+includes other Codex activity and may update after a benchmark finishes.
 
 `uv run --locked python -m livenerf.codex_upstream_study` verifies the panel
 and shows validation progress. Pass `--prepare` to freeze and publish the

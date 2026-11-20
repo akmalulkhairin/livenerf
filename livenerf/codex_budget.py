@@ -47,6 +47,8 @@ def weekly_allowance(reset):
     override = os.environ.get("LIVENERF_STUDY_ALLOWANCE")
     if override is None:
         return WEEKLY_POINTS
+    if override == "off":
+        return math.inf
     try:
         window, limit = override.split(":")
         reset_at = int(window)

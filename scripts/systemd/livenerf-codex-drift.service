@@ -8,7 +8,7 @@ Type=oneshot
 WorkingDirectory=%h/.local/share/livenerf-codex/current
 EnvironmentFile=%h/.config/livenerf-codex/environment
 Environment=GIT_TERMINAL_PROMPT=0
-ExecStart=%h/.local/share/livenerf-codex/current/.venv/bin/python -m livenerf.codex_upstream_study --run
+ExecStart=%h/.local/share/livenerf-codex/current/.venv/bin/python -m livenerf.codex_study_meter
 TimeoutStartSec=2h
 Restart=on-failure
 RestartSec=5min

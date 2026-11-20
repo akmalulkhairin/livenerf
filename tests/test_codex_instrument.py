@@ -77,6 +77,11 @@ def test_scheduled_allowance_expires_at_the_named_reset(tmp_path, monkeypatch, a
         reserve(path, limits, 2)
     with pytest.raises(BudgetStop, match="weekly allowance"):
         reserve(path, limits, 2)
+    monkeypatch.setenv("LIVENERF_STUDY_ALLOWANCE", "off")
+    assert reserve(path, limits, 2) == (0, 20)
+    limits["primary"]["usedPercent"] = 48
+    with pytest.raises(BudgetStop, match="Account usage"):
+        reserve(path, limits, 2)
 
 
 @pytest.mark.parametrize(("event", "marker"), (
