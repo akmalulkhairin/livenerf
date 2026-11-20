@@ -30,10 +30,14 @@ and graders. The chart and aggregate scores reflect Codex runs.
 
 ## Study status
 
-Astra and Sol completed the [same 78 questions as upstream](docs/adr/0002-use-the-upstream-frozen-panel.md)
-on 19 November 2026 UTC. This first run is a comparison. The formal drift
-baseline starts after instrument and sensitivity validation. The earlier Astra
-calibration is paused and the ten-question monitor is archived.
+Astra and Sol each run LiveNerf's 78 frozen questions. The 19 November 2026 UTC
+comparison is recorded separately from the formal study.
+[Panel decision](docs/adr/0002-use-the-upstream-frozen-panel.md)
+
+Instrument validation passed and baseline collection began on 20 November
+2026 UTC. The Astra-to-Sol model swap was inconclusive at the 99% threshold
+for both accuracy and output tokens.
+[Validation report](https://github.com/akmalulkhairin/livenerf/blob/codex-results/drift/e4fd3e8126ea3472/validation.json)
 
 ## Results
 
