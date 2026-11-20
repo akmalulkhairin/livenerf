@@ -2,13 +2,13 @@
 
 # LiveNerf for Codex
 
-*Tracking sustained changes in GPT performance as served through the Codex CLI.*
+*An attempt to track GPT performance through the Codex CLI. Collection ended on 20 November 2026.*
 
 <p>
   <a href="https://github.com/akmalulkhairin/livenerf/actions/workflows/ci.yml"><img src="https://github.com/akmalulkhairin/livenerf/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
   <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat-square" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/models-GPT--6.2%20Astra%20%2B%20Sol-2a78d6?style=flat-square" alt="Models GPT-6.2 Astra and Sol">
-  <a href="#study-status"><img src="https://img.shields.io/badge/study-drift_series-e8a13c?style=flat-square" alt="Daily drift series"></a>
+  <a href="#study-status"><img src="https://img.shields.io/badge/study-ended-777777?style=flat-square" alt="Study ended"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square" alt="MIT licence"></a>
 </p>
 
@@ -30,9 +30,17 @@ and graders. The chart and aggregate scores reflect Codex runs.
 
 ## Study status
 
-Astra and Sol each run LiveNerf's 78 frozen questions. The first points on the chart show the
-19 November 2026 UTC comparison. Astra scored 47/78 and Sol scored 38/78.
-Baseline calculations use the daily runs from 20 November onwards.
+Scheduled collection ended on 20 November 2026. Astra and Sol each answered
+the same 78 questions on two UTC dates.
+
+| UTC date | Run | Astra | Sol |
+| --- | --- | ---: | ---: |
+| 19 November | Initial comparison | 47/78 | 38/78 |
+| 20 November | Formal baseline day 1 | 41/78 | 45/78 |
+
+The study ended after one of the ten planned baseline days, too early to
+assess drift or estimate routine quota use over five days. The chart shows
+the final run and the baseline window as originally planned.
 [Panel decision](docs/adr/0002-use-the-upstream-frozen-panel.md)
 
 Instrument validation passed and baseline collection began on 20 November
@@ -50,14 +58,14 @@ for both accuracy and output tokens.
 - [Archived ten-question monitor chart and CSV](https://github.com/akmalulkhairin/livenerf/tree/codex-results)
 - [Pilot CSV](https://github.com/akmalulkhairin/livenerf/blob/codex-results/pilot.csv)
 
-The chart shades the ten-day baseline window and shows approximate 95%
+The chart shades the planned ten-day baseline window and shows approximate 95%
 confidence intervals for each day's scores. The dated Claude references use
 the same panel and preserve upstream's original run settings.
 
 ## How it works
 
-- **Benchmark on the workstation.** The daily timer advances validation and
-  then collects 78 answers per model each UTC day. The runner uses a dedicated
+- **Benchmark on the workstation.** The daily timer advanced validation and
+  then collected 78 answers per model each UTC day. The runner uses a dedicated
   Codex profile and checks account usage before every sample.
 - **Reports from saved logs.** The comparison publishes a CSV, run settings
   and light and dark SVG charts once both models have all 78 scores. The drift
