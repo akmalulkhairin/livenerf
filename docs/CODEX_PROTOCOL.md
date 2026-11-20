@@ -68,8 +68,10 @@ points for observed meter movement. This is a reservation calculation. Daily
 run costs depend on measured usage across a full week.
 
 Set `LIVENERF_STUDY_ALLOWANCE` to `reset_timestamp:points` in the scheduled
-service to raise the ledger allowance for one confirmed weekly window. The
-next window uses the normal cap. The account-wide stop applies in both windows.
+service to raise the ledger allowance for one confirmed weekly window. Use
+`reset_timestamp:off` to suspend the ledger cap for that window. The ledger
+continues recording reservations and usage. The next window uses the normal
+cap. The account-wide stop applies throughout.
 
 `uv run --locked python -m livenerf.codex_upstream_study` verifies the panel
 and shows validation progress. Pass `--prepare` to freeze and publish the

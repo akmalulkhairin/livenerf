@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import time
 from pathlib import Path
@@ -47,23 +48,25 @@ def weekly_allowance(reset):
     if override is None:
         return WEEKLY_POINTS
     try:
-        window, points = map(int, override.split(":"))
+        window, limit = override.split(":")
+        reset_at = int(window)
+        points = math.inf if limit == "off" else int(limit)
     except ValueError as error:
-        raise BudgetStop("The study allowance must be set as reset timestamp:points") from error
-    if not WEEKLY_POINTS <= points <= 100:
-        raise BudgetStop("The study allowance must be between 20 and 100 points")
-    return points if reset == window else WEEKLY_POINTS
+        raise BudgetStop("Set the study allowance as reset timestamp followed by points or 'off'") from error
+    if points < WEEKLY_POINTS:
+        raise BudgetStop("The study allowance must be at least 20 points")
+    return points if reset == reset_at else WEEKLY_POINTS
 
 
 def reserve(path, limits, points, *, weekly_points=None, upcoming_points=0):
     used, reset = check_account(limits, points)
-    if weekly_points is None:
-        weekly_points = weekly_allowance(reset)
     state = json.loads(path.read_text()) if path.exists() else {"reset": reset, "start": used, "peak": used, "reserved": 0}
     if time.time() >= state["reset"]:
         if reset <= state["reset"]:
             raise BudgetStop("Codex has not confirmed a new weekly window")
         state = {"reset": reset, "start": used, "peak": used, "reserved": 0}
+    if weekly_points is None:
+        weekly_points = weekly_allowance(state["reset"])
     state["peak"] = max(state["peak"], used)
     observed = state["peak"] - state["start"]
     state["reserved"] += points
