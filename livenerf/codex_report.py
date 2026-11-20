@@ -1,4 +1,5 @@
 import csv
+import json
 import math
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -52,11 +53,14 @@ def daily_scores(root, models):
     return rows
 
 
-def render(rows, models, theme="light", *, study_baseline=None, comparison=False):
+def render(rows, models, theme="light", *, study_baseline=None, comparison=False, initial=None):
     colours = THEMES[theme]
     width, height = 960, 380
     left, right, top, bottom = 64, width - 28, 92, height - 52
     start, last = rows[0][0], rows[-1][0]
+    baseline_start = start
+    if initial:
+        start, initial_scores = initial
     series = [
         [(day, 100 * scores[model].mean, 100 * scores[model].se) for day, scores in rows if model in scores]
         for model in models
@@ -82,12 +86,21 @@ def render(rows, models, theme="light", *, study_baseline=None, comparison=False
             for points in series
         )
         subtitle = "Fixed 10-question compute panel with approximate 95% intervals. Dashed lines show baseline means."
+    if initial:
+        subtitle = (f"{start:%d %b} initial comparison · "
+                    + " · ".join(f"{name} {initial_scores[model].mean:.1%}"
+                                 for model, name in zip(models, ("Astra", "Sol"), strict=True))
+                    + f". Baseline begins {baseline_start:%d %b}. Bars show 95% intervals.")
+        description = subtitle
     end = max(start + MIN_SPAN, max(last, baseline_end) + timedelta(days=4))
     values = [score for points in series for _, score, _ in points]
     for points in series:
         for _, score, se in points:
             if math.isfinite(se):
                 values.extend(confidence_bounds(score, se))
+    if initial:
+        for estimate in initial_scores.values():
+            values.extend(confidence_bounds(100 * estimate.mean, 100 * estimate.se))
     low = max(0, 10 * math.floor((min([40, *values]) - 1) / 10))
     high = min(100, 10 * math.ceil((max([80, *values]) + 1) / 10))
 
@@ -114,10 +127,11 @@ def render(rows, models, theme="light", *, study_baseline=None, comparison=False
         parts.append(f'<text x="{left - 10}" y="{level + 4:.1f}" text-anchor="end" '
                      f'fill="{colours["muted"]}" font-size="12">{percent}%</text>')
     if not comparison:
-        parts.append(f'<rect x="{left}" y="{top}" width="{x(baseline_end) - left:.1f}" height="{bottom - top}" '
+        band_left = x(baseline_start)
+        parts.append(f'<rect x="{band_left:.1f}" y="{top}" width="{x(baseline_end) - band_left:.1f}" height="{bottom - top}" '
                      f'fill="{colours["band"]}" opacity="0.6"/>')
-        parts.append(f'<text x="{left + 6}" y="{top + 16}" fill="{colours["ink2"]}" font-size="12">baseline collection</text>')
-        parts.append(f'<text x="{left + 6}" y="{bottom - 8}" fill="{colours["muted"]}" font-size="11">day 1 · {start:%b %d}</text>')
+        parts.append(f'<text x="{band_left + 6:.1f}" y="{top + 16}" fill="{colours["ink2"]}" font-size="12">baseline collection</text>')
+        parts.append(f'<text x="{band_left + 6:.1f}" y="{bottom - 8}" fill="{colours["muted"]}" font-size="11">baseline day 1 · {baseline_start:%b %d}</text>')
     for offset in range(0, (end - start).days + 1, 7):
         day = start + timedelta(days=offset)
         parts.append(f'<text x="{x(day):.1f}" y="{bottom + 22}" text-anchor="middle" '
@@ -136,9 +150,13 @@ def render(rows, models, theme="light", *, study_baseline=None, comparison=False
             baseline = mean(score for _, score, _ in points[:BASELINE_DAYS])
         if baseline is not None:
             level = y(baseline)
-            parts.append(f'<line x1="{left}" y1="{level:.1f}" x2="{right}" y2="{level:.1f}" stroke="{colour}" '
+            parts.append(f'<line x1="{x(baseline_start):.1f}" y1="{level:.1f}" x2="{right}" y2="{level:.1f}" stroke="{colour}" '
                          'stroke-width="1.5" stroke-dasharray="6 5"/>')
             baseline_labels.append((level, right - 4, "end", colour, f"{name} baseline {baseline:.1f}%"))
+        if initial:
+            estimate = initial_scores[model]
+            parts.extend(render_score_series([(start, 100 * estimate.mean, 100 * estimate.se)],
+                                             x, y, colour, colours["surface"]))
         if not points:
             continue
         for _, segment in groupby(enumerate(points), key=lambda pair: pair[1][0].toordinal() - pair[0]):
@@ -181,7 +199,18 @@ def write_report(root, models):
 
 
 def write_charts(root, rows, models, *, study_baseline=None, comparison=False):
+    initial = None
+    if study_baseline and root.parent.name == "e4fd3e8126ea3472":
+        archive = Path(__file__).resolve().parents[1] / "results" / "codex-initial-comparison.json"
+        comparison_run = json.loads(archive.read_text())
+        estimates = {}
+        for model in models:
+            counts = comparison_run["models"][model]
+            n = counts["scored"]
+            score = counts["correct"] / n
+            estimates[model] = DailyEstimate(score, math.sqrt(score * (1 - score) / (n - 1)))
+        initial = date.fromisoformat(comparison_run["utc_day"]), estimates
     for theme, name in (("light", "daily.svg"), ("dark", "daily-dark.svg")):
         with NamedTemporaryFile(mode="w", encoding="utf-8", dir=root, delete=False) as file:
-            file.write(render(rows, models, theme, study_baseline=study_baseline, comparison=comparison))
+            file.write(render(rows, models, theme, study_baseline=study_baseline, comparison=comparison, initial=initial))
         Path(file.name).replace(root / name)

@@ -44,3 +44,21 @@ def test_report_preserves_gap_and_matches_csv(tmp_path, monkeypatch):
     assert 'fill="#1a1a19"' in (tmp_path / "daily-dark.svg").read_text()
     codex_report.write_report(tmp_path, models)
     assert (tmp_path / "daily.svg").read_text() == svg
+
+
+def test_initial_comparison_precedes_baseline_in_both_themes(tmp_path):
+    output = tmp_path / "e4fd3e8126ea3472" / "reports"
+    output.mkdir(parents=True)
+    models = ("gpt-6.2-astra", "gpt-6.2-sol")
+    scores = dict.fromkeys(models, codex_report.DailyEstimate(0.5, 0.05))
+    baseline = codex_report.StudyBaseline(date(2026, 11, 29), {}, "", True)
+    codex_report.write_charts(output, [(date(2026, 11, 20), scores)], models, study_baseline=baseline)
+    for filename in ("daily.svg", "daily-dark.svg"):
+        svg = (output / filename).read_text()
+        assert "19 Nov initial comparison · Astra 60.3% · Sol 48.7%" in svg
+        chart = ElementTree.fromstring(svg)
+        band = chart.find("{*}rect[@opacity='0.6']")
+        points = [float(point.get("cx")) for point in chart.findall("{*}circle")]
+        assert len(points) == 4
+        assert points[0] == points[2] < float(band.get("x")) == points[1] == points[3]
+        assert len(chart.findall("{*}line[@opacity='0.5']")) == 4

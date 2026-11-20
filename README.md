@@ -17,7 +17,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/drift/e4fd3e8126ea3472/daily-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/drift/e4fd3e8126ea3472/daily.svg">
-  <img alt="Daily GPT-6.2 Astra and Sol scores with 95% confidence intervals and the baseline window" src="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/drift/e4fd3e8126ea3472/daily.svg" width="100%">
+  <img alt="Astra and Sol scores from 19 November, with 95% confidence intervals and baseline shading from 20 November" src="https://raw.githubusercontent.com/akmalulkhairin/livenerf/codex-results/drift/e4fd3e8126ea3472/daily.svg" width="100%">
 </picture>
 
 </div>
@@ -30,8 +30,9 @@ and graders. The chart and aggregate scores reflect Codex runs.
 
 ## Study status
 
-Astra and Sol each run LiveNerf's 78 frozen questions. The 19 November 2026 UTC
-comparison is recorded separately from the formal study.
+Astra and Sol each run LiveNerf's 78 frozen questions. The first points on the chart show the
+19 November 2026 UTC comparison. Astra scored 47/78 and Sol scored 38/78.
+Baseline calculations use the daily runs from 20 November onwards.
 [Panel decision](docs/adr/0002-use-the-upstream-frozen-panel.md)
 
 Instrument validation passed and baseline collection began on 20 November
