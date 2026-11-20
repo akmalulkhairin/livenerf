@@ -39,4 +39,6 @@ When citing a result, use the run date and the commit from this branch.
 
 ## Drift study e4fd3e8126ea3472
 
+[Instrument validation and measured sensitivity](drift/e4fd3e8126ea3472/validation.json)
+
 [Frozen panel summary and predicted sensitivity](drift/e4fd3e8126ea3472/design.json)

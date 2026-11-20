@@ -1,0 +1,111 @@
+{
+  "arms": {
+    "control": [
+      "gpt-6.2-sol",
+      "high"
+    ],
+    "high": [
+      "gpt-6.2-astra",
+      "high"
+    ],
+    "low": [
+      "gpt-6.2-astra",
+      "low"
+    ],
+    "medium": [
+      "gpt-6.2-astra",
+      "medium"
+    ]
+  },
+  "cli_version": "codex-cli 0.169.1",
+  "last_sample_started": "2026-11-20T05:58:09+00:00",
+  "panel_sha256": "6f58f5a7621ddb486abe592cc292b7e66097a86e3dc692766fd36c1f2421e11f",
+  "replicates_per_question_and_arm": 4,
+  "study_id": "e4fd3e8126ea3472",
+  "validation": {
+    "aa_accuracy": {
+      "delta_points": 0.641025641025641,
+      "items": 78,
+      "se_points": 2.138555127874074,
+      "z": 0.29974707346585033
+    },
+    "aa_consistent": true,
+    "control_distinguishable": false,
+    "control_items": 78,
+    "errors": 1,
+    "lower_effort_token_ci99": [
+      -72.25085176269175,
+      -53.267736770651865
+    ],
+    "paired_checks": {
+      "control": {
+        "accuracy": {
+          "ci99_points": [
+            -14.48252616060337,
+            4.226115904193115
+          ],
+          "delta_points": -5.128205128205128,
+          "items": 78,
+          "se_points": 3.6313358045024233,
+          "z": -1.4122090063515376
+        },
+        "output_usage": {
+          "change_pct": 4.944346778950082,
+          "ci99_pct": [
+            -15.354916002535536,
+            30.111701716669504
+          ],
+          "items": 78,
+          "z": 0.5783211862931995
+        }
+      },
+      "low": {
+        "accuracy": {
+          "ci99_points": [
+            -10.58556144153029,
+            5.457356313325162
+          ],
+          "delta_points": -2.564102564102564,
+          "items": 78,
+          "se_points": 3.113920371672254,
+          "z": -0.8234322840842511
+        },
+        "output_usage": {
+          "change_pct": -63.98916135639035,
+          "ci99_pct": [
+            -72.25085176269175,
+            -53.267736770651865
+          ],
+          "items": 78,
+          "z": -10.09535127376969
+        }
+      },
+      "medium": {
+        "accuracy": {
+          "ci99_points": [
+            -7.599443713589989,
+            5.035341149487425
+          ],
+          "delta_points": -1.282051282051282,
+          "items": 78,
+          "se_points": 2.4524038942308644,
+          "z": -0.5227733021739331
+        },
+        "output_usage": {
+          "change_pct": -48.90681444861485,
+          "ci99_pct": [
+            -57.08105834806388,
+            -39.17572266904889
+          ],
+          "items": 78,
+          "z": -9.922302235341597
+        }
+      }
+    },
+    "passed": true,
+    "passed_coverage": true,
+    "pending_pairs": 0,
+    "scored": 1248,
+    "short_pairs": 0
+  }
+}
