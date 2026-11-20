@@ -55,6 +55,28 @@ def test_manual_allowance_uses_the_same_ledger_and_account_stop(tmp_path):
         reserve(path, limits, 2, weekly_points=55)
 
 
+def test_scheduled_allowance_expires_at_the_named_reset(tmp_path, monkeypatch):
+    path = tmp_path / "quota.json"
+    clock = 1_000_000
+    monkeypatch.setattr(codex_budget.time, "time", lambda: clock)
+    reset = clock + 60
+    monkeypatch.setenv("LIVENERF_STUDY_ALLOWANCE", f"{reset}:90")
+    limits = {"primary": {"usedPercent": 31, "resetsAt": reset, "windowDurationMins": 10080}}
+    for _ in range(12):
+        reserve(path, limits, 2)
+    assert reserve(path, limits, 2) == (31, 26)
+    limits["primary"]["usedPercent"] = 48
+    with pytest.raises(BudgetStop, match="Account usage"):
+        reserve(path, limits, 2)
+
+    clock = reset + 1
+    limits["primary"].update(usedPercent=0, resetsAt=reset + 604800)
+    for _ in range(9):
+        reserve(path, limits, 2)
+    with pytest.raises(BudgetStop, match="weekly allowance"):
+        reserve(path, limits, 2)
+
+
 @pytest.mark.parametrize(("event", "marker"), (
     ({"method": "model/rerouted"}, "[fallback]"),
     ({"method": "error", "params": {"willRetry": True}}, "[retried]"),
