@@ -1,10 +1,11 @@
 # LiveNerf for Codex results
 
-Daily monitoring of GPT-6.2 Astra and Sol through the Codex CLI. Each
-run uses the same ten public compute questions. The grader awards
-partial credit, and each model gets a baseline after ten complete days.
-This panel tracks daily scores while a drift study would require a
-calibrated panel.
+Collection ended on 20 November 2026. The [initial comparison](comparison/8ad04dd62da4845f/daily.csv)
+and [first baseline day](drift/e4fd3e8126ea3472/daily.csv) record both
+78-question runs. The baseline was incomplete when the study ended.
+[Study summary](https://github.com/akmalulkhairin/livenerf#study-status)
+
+The chart below records the earlier ten-question monitor.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="daily-dark.svg">
